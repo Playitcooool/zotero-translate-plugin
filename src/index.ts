@@ -30,23 +30,35 @@ const hooks = {
     }
   },
 
+  // Called when a reader (PDF) window loads
   onMainWindowLoad: async (window: Window) => {
-    // Keyboard shortcut: Ctrl/Cmd+Shift+T to translate selected text
-    window.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'T') {
-        e.preventDefault();
-        const selection = window.getSelection();
-        const text = selection ? selection.toString().trim() : '';
-        if (text) {
-          doTranslate(text, window);
+    log('Main window loaded');
+
+    // Wait for the reader to be ready
+    const setupReader = async () => {
+      // For PDF reader, we need to wait for the iframe to load
+      const setupInterval = setInterval(() => {
+        try {
+          // Try to find the PDF reader iframe
+          const iframe = window.document.querySelector('iframe[name="reader"]');
+          if (iframe && iframe.contentWindow) {
+            clearInterval(setupInterval);
+            setupContextMenu(iframe.contentWindow as Window);
+            log('Reader context menu set up');
+          }
+        } catch (e) {
+          // Ignore cross-origin errors
         }
-      }
-    });
+      }, 1000);
+
+      // Stop after 30 seconds
+      setTimeout(() => clearInterval(setupInterval), 30000);
+    };
+
+    setupReader();
   },
 
   onPrefsLoad: async () => {
-    log('Prefs load called');
-    // Load values into inputs - document is the prefs pane document
     const doc = document;
     const fields = ['apiAddress', 'apiKey', 'modelName', 'targetLang', 'promptTemplate'];
     fields.forEach(field => {
@@ -56,22 +68,14 @@ const hooks = {
       }
     });
 
-    // Set up save button
     const saveBtn = doc.getElementById('saveBtn');
     if (saveBtn) {
       saveBtn.addEventListener('click', () => {
-        const apiAddress = (doc.getElementById('apiAddress') as HTMLInputElement)?.value || '';
-        const apiKey = (doc.getElementById('apiKey') as HTMLInputElement)?.value || '';
-        const modelName = (doc.getElementById('modelName') as HTMLInputElement)?.value || '';
-        const targetLang = (doc.getElementById('targetLang') as HTMLInputElement)?.value || '';
-        const promptTemplate = (doc.getElementById('promptTemplate') as HTMLTextAreaElement)?.value || '';
-
-        setSetting('apiAddress', apiAddress);
-        setSetting('apiKey', apiKey);
-        setSetting('modelName', modelName);
-        setSetting('targetLang', targetLang);
-        setSetting('promptTemplate', promptTemplate);
-
+        setSetting('apiAddress', (doc.getElementById('apiAddress') as HTMLInputElement)?.value || '');
+        setSetting('apiKey', (doc.getElementById('apiKey') as HTMLInputElement)?.value || '');
+        setSetting('modelName', (doc.getElementById('modelName') as HTMLInputElement)?.value || '');
+        setSetting('targetLang', (doc.getElementById('targetLang') as HTMLInputElement)?.value || '');
+        setSetting('promptTemplate', (doc.getElementById('promptTemplate') as HTMLTextAreaElement)?.value || '');
         log('Settings saved');
         alert('Settings saved!');
       });
@@ -81,6 +85,34 @@ const hooks = {
   onMainWindowUnload: async () => {},
   onShutdown: async () => {},
 };
+
+function setupContextMenu(readerWindow: Window): void {
+  // Create menu item for translation
+  const menuPopup = readerWindow.document.getElementById('context-popup');
+  if (!menuPopup) {
+    log('Context popup not found');
+    return;
+  }
+
+  const menuItem = readerWindow.document.createElement('menuitem');
+  menuItem.id = 'zotero-translate-menuitem';
+  menuItem.setAttribute('label', 'Translate with Zotero Translate');
+  menuItem.addEventListener('click', async () => {
+    const selection = readerWindow.getSelection();
+    const text = selection ? selection.toString().trim() : '';
+    if (text) {
+      const result = await translate(text);
+      if (result.success && result.translation) {
+        readerWindow.alert(`Translation:\n\n${result.translation}`);
+      } else {
+        readerWindow.alert(`Translation failed: ${result.error}`);
+      }
+    }
+  });
+
+  menuPopup.appendChild(menuItem);
+  log('Added translate menu item to context popup');
+}
 
 async function doTranslate(text: string, window: Window): Promise<void> {
   const result = await translate(text);
