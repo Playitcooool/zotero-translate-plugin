@@ -18,7 +18,8 @@ const hooks = {
 
       console.log('Zotero Translate Plugin starting...');
       // Register preferences pane
-      const rootURI = (globalThis as any).rootURI;
+      // Note: rootURI is set on globalThis by bootstrap.js
+      const rootURI = (globalThis as any).rootURI || (globalThis as any)._globalThis?.rootURI;
       console.log('rootURI:', rootURI);
       if (rootURI) {
         console.log('Registering preference pane...');
@@ -29,7 +30,7 @@ const hooks = {
         });
         console.log('Preference pane registered successfully');
       } else {
-        console.error('rootURI is undefined!');
+        console.error('rootURI is undefined! Available globals:', Object.keys(globalThis));
       }
     } catch (e) {
       console.error('Zotero Translate onStartup error:', e);

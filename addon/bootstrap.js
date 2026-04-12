@@ -19,8 +19,9 @@ async function startup({ id, version, resourceURI, rootURI }, reason) {
 
   const ctx = {
     rootURI,
+    _globalThis: globalThis,
   };
-  ctx._globalThis = ctx;
+  globalThis.rootURI = rootURI;
 
   Services.scriptloader.loadSubScript(
     `${rootURI}chrome/content/scripts/__addonRef__.js`,
