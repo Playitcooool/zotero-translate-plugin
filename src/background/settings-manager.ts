@@ -3,7 +3,7 @@ export interface TranslateSettings {
   apiKey: string;
   modelName: string;
   targetLang: string;
-  popupMaxWidth: number;
+  promptTemplate: string;
 }
 
 const DEFAULT_SETTINGS: TranslateSettings = {
@@ -11,10 +11,10 @@ const DEFAULT_SETTINGS: TranslateSettings = {
   apiKey: '',
   modelName: 'gpt-4',
   targetLang: '中文',
-  popupMaxWidth: 320,
+  promptTemplate: '翻译成${targetLang}：${text}',
 };
 
-const PREF_PREFIX = 'translate-plugin.';
+const PREF_PREFIX = 'extensions.zotero.zoterotranslate.';
 
 export function getSetting<K extends keyof TranslateSettings>(
   key: K
@@ -37,6 +37,6 @@ export function getAllSettings(): TranslateSettings {
     apiKey: getSetting('apiKey'),
     modelName: getSetting('modelName'),
     targetLang: getSetting('targetLang'),
-    popupMaxWidth: getSetting('popupMaxWidth'),
+    promptTemplate: getSetting('promptTemplate'),
   };
 }

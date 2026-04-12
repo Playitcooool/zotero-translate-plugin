@@ -42,6 +42,19 @@
   </groupbox>
 
   <groupbox>
+    <caption label="翻译提示词" />
+    <description style="margin-bottom: 8px;">
+      可用变量: ${text} (原文), ${targetLang} (目标语言), ${sourceLang} (源语言)
+    </description>
+    <textbox id="zoterotranslate-promptTemplate"
+             preference="extensions.zotero.zoterotranslate.promptTemplate"
+             rows="4"
+             multiline="true"
+             style="width: 100%;"
+             placeholder="翻译成${targetLang}：${text}" />
+  </groupbox>
+
+  <groupbox>
     <caption label="快捷键" />
     <description>打开设置窗口: Ctrl+Shift+, (Mac 上为 Cmd+Shift+,)</description>
   </groupbox>

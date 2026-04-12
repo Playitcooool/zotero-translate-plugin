@@ -11,6 +11,7 @@ declare namespace _ZoteroTypes {
       "apiKey": string;
       "modelName": string;
       "targetLang": string;
+      "promptTemplate": string;
     };
   }
 }

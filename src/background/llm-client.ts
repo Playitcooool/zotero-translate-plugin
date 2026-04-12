@@ -6,11 +6,12 @@ export interface TranslateResult {
   error?: string;
 }
 
-export async function translate(text: string): Promise<TranslateResult> {
+export async function translate(text: string, sourceLang: string = 'auto'): Promise<TranslateResult> {
   const apiAddress = getSetting('apiAddress');
   const apiKey = getSetting('apiKey');
   const modelName = getSetting('modelName');
   const targetLang = getSetting('targetLang');
+  const promptTemplate = getSetting('promptTemplate');
 
   if (!apiAddress || !modelName) {
     return { success: false, error: '请先在设置中配置 API 地址和模型名称' };
@@ -18,12 +19,18 @@ export async function translate(text: string): Promise<TranslateResult> {
 
   const url = `${apiAddress}/chat/completions`;
 
+  // Apply template variables
+  const prompt = promptTemplate
+    .replace(/\${text}/g, text)
+    .replace(/\${targetLang}/g, targetLang)
+    .replace(/\${sourceLang}/g, sourceLang);
+
   const body = {
     model: modelName,
     messages: [
       {
         role: 'user',
-        content: `翻译成${targetLang}：${text}`,
+        content: prompt,
       },
     ],
   };
