@@ -33,17 +33,6 @@ async function startup({ id, version, resourceURI, rootURI }, reason) {
   if (Zotero.ZoteroTranslate?.hooks?.onStartup) {
     await Zotero.ZoteroTranslate.hooks.onStartup();
   }
-
-  // Register preference pane directly in bootstrap
-  try {
-    Zotero.PreferencePanes.register({
-      pluginID: 'zoterotranslate@plugin.local',
-      src: rootURI + 'chrome/content/preferences.xhtml',
-      label: 'Zotero Translate',
-    });
-  } catch (e) {
-    Zotero.log(`Failed to register preference pane: ${e}`);
-  }
 }
 
 async function onMainWindowLoad({ window }, reason) {

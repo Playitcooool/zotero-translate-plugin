@@ -1,20 +1,21 @@
 <vbox xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+      xmlns:html="http://www.w3.org/1999/xhtml"
       id="zotero-prefpane-zoterotranslate" flex="1" style="padding: 10px;">
 
   <label value="API Address"/>
-  <textbox id="apiAddress" flex="1" style="min-width: 300px;"/>
+  <html:input id="apiAddress" type="text" style="width: 300px; margin-bottom: 5px;"/>
 
-  <label value="API Key" style="margin-top: 10px;"/>
-  <textbox id="apiKey" type="password" flex="1" style="min-width: 300px;"/>
+  <label value="API Key"/>
+  <html:input id="apiKey" type="password" style="width: 300px; margin-bottom: 5px;"/>
 
-  <label value="Model" style="margin-top: 10px;"/>
-  <textbox id="modelName" flex="1" style="min-width: 300px;"/>
+  <label value="Model"/>
+  <html:input id="modelName" type="text" style="width: 300px; margin-bottom: 5px;"/>
 
-  <label value="Target Language" style="margin-top: 10px;"/>
-  <textbox id="targetLang" flex="1" style="min-width: 300px;"/>
+  <label value="Target Language"/>
+  <html:input id="targetLang" type="text" style="width: 300px; margin-bottom: 5px;"/>
 
-  <label value="Prompt Template" style="margin-top: 10px;"/>
-  <textbox id="promptTemplate" rows="4" flex="1" style="min-width: 300px;"/>
+  <label value="Prompt Template"/>
+  <html:textarea id="promptTemplate" rows="4" style="width: 300px; margin-bottom: 5px;"></html:textarea>
 
   <button id="saveBtn" label="Save Settings" style="margin-top: 10px;"/>
 
