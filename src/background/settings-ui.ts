@@ -36,19 +36,18 @@ export function openSettingsWindow(): void {
         <label>目标语言</label>
         <input id="target-lang" value="${escapeHtml(settings.targetLang)}" placeholder="中文">
       </div>
-      <button onclick="saveSettings()">保存</button>
+      <button id="save-btn">保存</button>
       <div id="saved" class="saved" style="display:none">已保存！</div>
       <script>
-        function saveSettings() {
-          // Access Zotero plugin's setSetting via window
-          const apiAddress = document.getElementById('api-address').value;
-          const apiKey = document.getElementById('api-key').value;
-          const modelName = document.getElementById('model-name').value;
-          const targetLang = document.getElementById('target-lang').value;
+        document.getElementById('save-btn').addEventListener('click', function() {
+          var apiAddress = document.getElementById('api-address').value;
+          var apiKey = document.getElementById('api-key').value;
+          var modelName = document.getElementById('model-name').value;
+          var targetLang = document.getElementById('target-lang').value;
           window.postMessage({ type: 'ZOTERO_SETTINGS_SAVE', apiAddress, apiKey, modelName, targetLang }, '*');
           document.getElementById('saved').style.display = 'block';
-          setTimeout(() => document.getElementById('saved').style.display = 'none', 2000);
-        }
+          setTimeout(function() { document.getElementById('saved').style.display = 'none'; }, 2000);
+        });
       </script>
     </body>
     </html>
@@ -59,17 +58,6 @@ export function openSettingsWindow(): void {
     'zotero-translate-settings',
     'width=500,height=400'
   );
-
-  // Listen for save messages from the settings window
-  window.addEventListener('message', function onSave(e) {
-    if (e.data?.type === 'ZOTERO_SETTINGS_SAVE') {
-      if (e.data.apiAddress !== undefined) setSetting('apiAddress', e.data.apiAddress);
-      if (e.data.apiKey !== undefined) setSetting('apiKey', e.data.apiKey);
-      if (e.data.modelName !== undefined) setSetting('modelName', e.data.modelName);
-      if (e.data.targetLang !== undefined) setSetting('targetLang', e.data.targetLang);
-      window.removeEventListener('message', onSave);
-    }
-  });
 }
 
 function escapeHtml(str: string): string {

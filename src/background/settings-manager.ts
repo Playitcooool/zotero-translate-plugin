@@ -1,9 +1,9 @@
 export interface TranslateSettings {
-  apiAddress: string;      // e.g. "http://localhost:11434/v1"
-  apiKey: string;          // API key
-  modelName: string;       // e.g. "gpt-4", "qwen2"
-  targetLang: string;      // "中文"
-  popupMaxWidth: number;   // 320
+  apiAddress: string;
+  apiKey: string;
+  modelName: string;
+  targetLang: string;
+  popupMaxWidth: number;
 }
 
 const DEFAULT_SETTINGS: TranslateSettings = {
