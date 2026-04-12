@@ -14,41 +14,8 @@
           <textbox id="zotero-translate-apiAddress"
                    preference="extensions.zotero.zoterotranslate.apiAddress"/>
         </row>
-        <row align="center">
-          <label control="zotero-translate-apiKey" value="API Key"/>
-          <textbox id="zotero-translate-apiKey"
-                   preference="extensions.zotero.zoterotranslate.apiKey"
-                   type="password"/>
-        </row>
-        <row align="center">
-          <label control="zotero-translate-modelName" value="Model"/>
-          <textbox id="zotero-translate-modelName"
-                   preference="extensions.zotero.zoterotranslate.modelName"/>
-        </row>
-        <row align="center">
-          <label control="zotero-translate-targetLang" value="Target Language"/>
-          <textbox id="zotero-translate-targetLang"
-                   preference="extensions.zotero.zoterotranslate.targetLang"/>
-        </row>
       </rows>
     </grid>
-  </groupbox>
-
-  <groupbox>
-    <caption label="Prompt Template"/>
-    <description>Variables: ${text}, ${targetLang}, ${sourceLang}</description>
-    <textbox id="zotero-translate-promptTemplate"
-             preference="extensions.zotero.zoterotranslate.promptTemplate"
-             rows="4"
-             multiline="true"
-             style="width: 100%;"/>
-  </groupbox>
-
-  <groupbox>
-    <caption label="Usage"/>
-    <description>1. Configure API above</description>
-    <description>2. Select text in PDF reader</description>
-    <description>3. Press Ctrl/Cmd+Shift+T to translate</description>
   </groupbox>
 
 </vbox>
