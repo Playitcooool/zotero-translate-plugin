@@ -17,7 +17,7 @@ export const DEFAULT_SETTINGS: TranslateSettings = {
   modelName: 'gpt-4',
   targetLang: '中文',
   promptTemplate: '你是专业翻译引擎。请将以下文本翻译成${targetLang}，只输出译文，不要添加解释、标题、引号、注释或任何额外内容：\n${text}',
-  shortcut: 'Cmd+T',
+  shortcut: 'Mod+T',
 };
 
 const PREF_PREFIX = 'extensions.zotero.zoterotranslate.';

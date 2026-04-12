@@ -174,7 +174,7 @@ const hooks = {
         setSetting('modelName', modelNameEl?.value || '');
         setSetting('targetLang', targetLangEl?.value || '');
         setSetting('promptTemplate', promptTemplateEl?.value || '');
-        setSetting('shortcut', shortcutEl?.value || 'Cmd+T');
+        setSetting('shortcut', shortcutEl?.value || DEFAULT_SETTINGS.shortcut);
 
         log('Settings saved');
         showSettingsStatus(statusEl, '已保存', false);
@@ -382,6 +382,8 @@ function normalizeShortcut(shortcut: string): string {
     .trim()
     .toLowerCase()
     .replace(/\s+/g, '')
+    .replace(/mod/g, 'mod')
+    .replace(/meta/g, 'meta')
     .replace(/command|cmd/g, 'meta')
     .replace(/control|ctrl/g, 'ctrl')
     .replace(/option|opt|alt/g, 'alt')
@@ -397,16 +399,27 @@ function matchesShortcut(event: KeyboardEvent, shortcut: string): boolean {
   const key = parts[parts.length - 1];
   const modifiers = new Set(parts.slice(0, -1));
   const normalizedKey = normalizeEventKey(event.key);
+  const isMac = isMacPlatform();
+  const expectedMeta = modifiers.has('meta') || (modifiers.has('mod') && isMac);
+  const expectedCtrl = modifiers.has('ctrl') || (modifiers.has('mod') && !isMac);
 
   return normalizedKey === key
-    && event.metaKey === modifiers.has('meta')
-    && event.ctrlKey === modifiers.has('ctrl')
+    && event.metaKey === expectedMeta
+    && event.ctrlKey === expectedCtrl
     && event.altKey === modifiers.has('alt')
     && event.shiftKey === modifiers.has('shift');
 }
 
 function normalizeEventKey(key: string): string {
   return key.trim().toLowerCase();
+}
+
+function isMacPlatform(): boolean {
+  try {
+    return !!(Zotero as { isMac?: boolean }).isMac;
+  } catch {
+    return false;
+  }
 }
 
 function applySettingsToForm(doc: Document, values: Record<string, string>): void {

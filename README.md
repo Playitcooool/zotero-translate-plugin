@@ -9,7 +9,7 @@
 ## Features
 
 - 面向 `Zotero 7` 的 PDF 选中文本翻译
-- 默认快捷键 `Cmd+T`，可在设置页自定义
+- 默认快捷键 `Mod+T`，可在设置页自定义
 - 支持多种翻译后端
 - `OpenAI Compatible / LLM`
 - `DeepL`
@@ -63,7 +63,7 @@ npm run build
 
 1. 在 Zotero 中打开 PDF
 2. 选中需要翻译的文本
-3. 按下快捷键，默认是 `Cmd+T`
+3. 按下快捷键，默认是 `Mod+T`
 4. 在右下角翻译面板中查看结果
 
 ## Providers
@@ -122,6 +122,19 @@ npm run build
 
 当你切换不同翻译引擎时，设置页会自动隐藏不适用的字段。
 
+快捷键说明：
+
+- `Mod` 在 macOS 下等于 `Cmd`
+- `Mod` 在 Windows / Linux 下等于 `Ctrl`
+- 推荐写法：`Mod+T`、`Mod+Shift+T`
+
+## Compatibility
+
+- 主要面向 `Zotero 7`
+- 已按桌面端 `macOS / Windows / Linux` 的快捷键习惯做统一处理
+- 当前版本依赖 Zotero Reader 的文本选区事件
+- 对更高主版本 Zotero 的兼容性暂未做完整验证
+
 ## Development
 
 ```bash
@@ -151,7 +164,6 @@ typings/
 
 ## Notes
 
-- 当前主要面向 `Zotero 7`
 - 翻译触发依赖 Zotero Reader 的文本选区事件
 - 如果切换了接口预设，建议重新检查 `API 地址`、`API Key`、`模型名称`
 
