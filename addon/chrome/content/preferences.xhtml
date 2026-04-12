@@ -1,21 +1,22 @@
 <vbox xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
       xmlns:html="http://www.w3.org/1999/xhtml"
-      id="zotero-prefpane-zoterotranslate" flex="1" style="padding: 10px;">
+      id="zotero-prefpane-zoterotranslate" flex="1" style="padding: 10px;"
+      onload="Zotero.ZoteroTranslate.hooks.onPrefsLoad(event)">
 
   <label value="API Address"/>
-  <html:input id="apiAddress" type="text" style="width: 300px; margin-bottom: 5px;"/>
+  <html:input id="apiAddress" type="text" value="http://localhost:11434/v1" style="width: 300px; margin-bottom: 5px;"/>
 
   <label value="API Key"/>
   <html:input id="apiKey" type="password" style="width: 300px; margin-bottom: 5px;"/>
 
   <label value="Model"/>
-  <html:input id="modelName" type="text" style="width: 300px; margin-bottom: 5px;"/>
+  <html:input id="modelName" type="text" value="gpt-4" style="width: 300px; margin-bottom: 5px;"/>
 
   <label value="Target Language"/>
-  <html:input id="targetLang" type="text" style="width: 300px; margin-bottom: 5px;"/>
+  <html:input id="targetLang" type="text" value="Chinese" style="width: 300px; margin-bottom: 5px;"/>
 
   <label value="Prompt Template"/>
-  <html:textarea id="promptTemplate" rows="4" style="width: 300px; margin-bottom: 5px;"></html:textarea>
+  <html:textarea id="promptTemplate" rows="4" style="width: 300px; margin-bottom: 5px;">Translate to ${targetLang}: ${text}</html:textarea>
 
   <button id="saveBtn" label="Save Settings" style="margin-top: 10px;"/>
 

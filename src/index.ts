@@ -1,8 +1,8 @@
 // Zotero plugin bootstrap entry point
 
 import { translate } from './background/llm-client';
+import { getSetting, setSetting } from './background/settings-manager';
 
-// Use Services.console.logStringMessage for logging in bootstrap context
 declare const Services: any;
 const log = (msg: string) => {
   try {
@@ -11,35 +11,26 @@ const log = (msg: string) => {
     Zotero.log(`ZoteroTranslate: ${msg}`);
   }
 };
-const logError = (msg: string, e?: unknown) => {
-  log(`ERROR: ${msg}`);
-  if (e instanceof Error) log(e.message);
-};
 
 const hooks = {
   onStartup: async () => {
     try {
       log('Plugin starting...');
       const rootURI = (globalThis as any).rootURI;
-      log(`rootURI = ${rootURI}`);
       if (rootURI) {
-        log('Registering preference pane...');
         Zotero.PreferencePanes.register({
           pluginID: 'zoterotranslate@plugin.local',
           src: rootURI + 'chrome/content/preferences.xhtml',
           label: 'Zotero Translate',
         });
         log('Preference pane registered');
-      } else {
-        log('rootURI is undefined - cannot register preference pane');
       }
     } catch (e) {
-      logError('onStartup failed', e);
+      Zotero.log(`onStartup error: ${e}`);
     }
   },
 
   onMainWindowLoad: async (window: Window) => {
-    log('Main window loaded');
     // Keyboard shortcut: Ctrl/Cmd+Shift+T to translate selected text
     window.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'T') {
@@ -53,10 +44,42 @@ const hooks = {
     });
   },
 
-  onMainWindowUnload: async () => {},
-  onShutdown: async () => {
-    log('Plugin shutting down');
+  onPrefsLoad: async () => {
+    log('Prefs load called');
+    // Load values into inputs - document is the prefs pane document
+    const doc = document;
+    const fields = ['apiAddress', 'apiKey', 'modelName', 'targetLang', 'promptTemplate'];
+    fields.forEach(field => {
+      const el = doc.getElementById(field) as HTMLInputElement;
+      if (el) {
+        el.value = getSetting(field as any) as string;
+      }
+    });
+
+    // Set up save button
+    const saveBtn = doc.getElementById('saveBtn');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => {
+        const apiAddress = (doc.getElementById('apiAddress') as HTMLInputElement)?.value || '';
+        const apiKey = (doc.getElementById('apiKey') as HTMLInputElement)?.value || '';
+        const modelName = (doc.getElementById('modelName') as HTMLInputElement)?.value || '';
+        const targetLang = (doc.getElementById('targetLang') as HTMLInputElement)?.value || '';
+        const promptTemplate = (doc.getElementById('promptTemplate') as HTMLTextAreaElement)?.value || '';
+
+        setSetting('apiAddress', apiAddress);
+        setSetting('apiKey', apiKey);
+        setSetting('modelName', modelName);
+        setSetting('targetLang', targetLang);
+        setSetting('promptTemplate', promptTemplate);
+
+        log('Settings saved');
+        alert('Settings saved!');
+      });
+    }
   },
+
+  onMainWindowUnload: async () => {},
+  onShutdown: async () => {},
 };
 
 async function doTranslate(text: string, window: Window): Promise<void> {
