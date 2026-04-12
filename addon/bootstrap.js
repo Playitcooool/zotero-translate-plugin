@@ -29,8 +29,9 @@ async function startup({ id, version, resourceURI, rootURI }, reason) {
   );
 
   // Call onStartup hook after script is loaded
-  if (ctx.ZoteroTranslate?.hooks?.onStartup) {
-    await ctx.ZoteroTranslate.hooks.onStartup();
+  // Script sets Zotero.ZoteroTranslate, not ctx.ZoteroTranslate
+  if (Zotero.ZoteroTranslate?.hooks?.onStartup) {
+    await Zotero.ZoteroTranslate.hooks.onStartup();
   }
 }
 
