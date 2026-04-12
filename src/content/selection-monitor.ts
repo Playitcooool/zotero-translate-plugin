@@ -22,7 +22,7 @@ function createIcon(): HTMLElement {
     const rect = getSelectionRect();
     if (!text || !rect) return;
     window.postMessage(
-      { type: 'ZOTERO_TRANSLATE_REQUEST', text },
+      { type: 'ZOTERO_SHOW_POPUP', text, rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height } },
       '*'
     );
   });

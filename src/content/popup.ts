@@ -112,7 +112,12 @@ function escapeHtml(str: string): string {
 }
 
 window.addEventListener('message', (e) => {
-  if (e.data.type === 'ZOTERO_TRANSLATE_RESULT') {
+  if (e.data?.type === 'ZOTERO_SHOW_POPUP' && e.data.text) {
+    // Called when user clicks the selection icon - show popup with loading
+    const rect = new DOMRect(e.data.rect.left, e.data.rect.top, e.data.rect.width, e.data.rect.height);
+    showPopup(e.data.text, rect);
+  }
+  if (e.data?.type === 'ZOTERO_TRANSLATE_RESULT') {
     if (e.data.success) {
       updatePopupTranslation(e.data.translation);
     } else {
