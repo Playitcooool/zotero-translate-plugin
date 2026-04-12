@@ -1,62 +1,56 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <vbox xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
       xmlns:html="http://www.w3.org/1999/xhtml"
-      id="zotero-prefpane-zoterotranslate"
-      onload="Zotero.ZoteroTranslate.hooks.onPrefsLoad(event)">
+      id="zotero-prefpane-zoterotranslate">
 
   <groupbox>
-    <caption label="API 配置" />
+    <caption label="API Configuration"/>
     <grid>
       <columns>
-        <column flex="1" />
-        <column flex="2" />
+        <column flex="1"/>
+        <column flex="2"/>
       </columns>
       <rows>
         <row align="center">
-          <label control="zoterotranslate-apiAddress" value="API 地址" />
-          <textbox id="zoterotranslate-apiAddress"
-                   preference="extensions.zotero.zoterotranslate.apiAddress"
-                   placeholder="http://localhost:11434/v1" />
+          <label control="zoterotranslate-apiAddress" value="API Address"/>
+          <textbox id="zotero-translate-apiAddress"
+                   preference="extensions.zotero.zoterotranslate.apiAddress"/>
         </row>
         <row align="center">
-          <label control="zoterotranslate-apiKey" value="API Key" />
-          <textbox id="zoterotranslate-apiKey"
+          <label control="zoterotranslate-apiKey" value="API Key"/>
+          <textbox id="zotero-translate-apiKey"
                    preference="extensions.zotero.zoterotranslate.apiKey"
-                   type="password"
-                   placeholder="sk-..." />
+                   type="password"/>
         </row>
         <row align="center">
-          <label control="zoterotranslate-modelName" value="模型名称" />
-          <textbox id="zoterotranslate-modelName"
-                   preference="extensions.zotero.zoterotranslate.modelName"
-                   placeholder="gpt-4" />
+          <label control="zoterotranslate-modelName" value="Model"/>
+          <textbox id="zotero-translate-modelName"
+                   preference="extensions.zotero.zoterotranslate.modelName"/>
         </row>
         <row align="center">
-          <label control="zoterotranslate-targetLang" value="目标语言" />
-          <textbox id="zoterotranslate-targetLang"
-                   preference="extensions.zotero.zoterotranslate.targetLang"
-                   placeholder="中文" />
+          <label control="zoterotranslate-targetLang" value="Target Language"/>
+          <textbox id="zotero-translate-targetLang"
+                   preference="extensions.zotero.zoterotranslate.targetLang"/>
         </row>
       </rows>
     </grid>
   </groupbox>
 
   <groupbox>
-    <caption label="翻译提示词" />
-    <description style="margin-bottom: 8px;">
-      可用变量: ${text} (原文), ${targetLang} (目标语言), ${sourceLang} (源语言)
-    </description>
-    <textbox id="zoterotranslate-promptTemplate"
+    <caption label="Prompt Template"/>
+    <description>Variables: ${text}, ${targetLang}, ${sourceLang}</description>
+    <textbox id="zotero-translate-promptTemplate"
              preference="extensions.zotero.zoterotranslate.promptTemplate"
              rows="4"
              multiline="true"
-             style="width: 100%;"
-             placeholder="翻译成${targetLang}：${text}" />
+             style="width: 100%;"/>
   </groupbox>
 
   <groupbox>
-    <caption label="快捷键" />
-    <description>打开设置窗口: Ctrl+Shift+, (Mac 上为 Cmd+Shift+,)</description>
+    <caption label="Usage"/>
+    <description>1. Configure API above</description>
+    <description>2. Select text in PDF</description>
+    <description>3. Press Ctrl/Cmd+Shift+T to translate</description>
   </groupbox>
 
 </vbox>
