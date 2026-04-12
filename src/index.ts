@@ -2,6 +2,13 @@
 
 import { translate } from './background/llm-client';
 
+// Use Zotero.log instead of console.log in bootstrap context
+const log = (msg: string) => Zotero.log(`ZoteroTranslate: ${msg}`);
+const logError = (msg: string, e?: unknown) => {
+  Zotero.log(`ZoteroTranslate ERROR: ${msg}`);
+  if (e instanceof Error) Zotero.log(e.message);
+};
+
 const hooks = {
   onStartup: async () => {
     try {
@@ -11,7 +18,7 @@ const hooks = {
         Zotero.uiReadyPromise,
       ]);
 
-      console.log('Zotero Translate Plugin starting...');
+      log('Plugin starting...');
       const rootURI = (globalThis as any).rootURI;
       if (rootURI) {
         Zotero.PreferencePanes.register({
@@ -19,14 +26,15 @@ const hooks = {
           src: rootURI + 'chrome/content/preferences.xhtml',
           label: 'Zotero Translate',
         });
-        console.log('Preference pane registered');
+        log('Preference pane registered');
       }
     } catch (e) {
-      console.error('Zotero Translate onStartup error:', e);
+      logError('onStartup failed', e);
     }
   },
 
   onMainWindowLoad: async (window: Window) => {
+    log('Main window loaded');
     // Keyboard shortcut: Ctrl/Cmd+Shift+T to translate selected text
     window.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'T') {
@@ -41,7 +49,9 @@ const hooks = {
   },
 
   onMainWindowUnload: async () => {},
-  onShutdown: async () => {},
+  onShutdown: async () => {
+    log('Plugin shutting down');
+  },
 };
 
 async function doTranslate(text: string, window: Window): Promise<void> {
