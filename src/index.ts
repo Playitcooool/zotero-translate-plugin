@@ -8,8 +8,15 @@ import { initContentScripts, injectStyles } from './content/content';
 // Plugin instance - Zotero calls these hooks
 const hooks = {
   onStartup: async () => {
+    // Wait for Zotero to be fully initialized before registering preference pane
+    await Promise.all([
+      Zotero.initializationPromise,
+      Zotero.unlockPromise,
+      Zotero.uiReadyPromise,
+    ]);
+
     console.log('Zotero Translate Plugin starting...');
-    // Register preferences pane - called after Zotero is initialized
+    // Register preferences pane
     const rootURI = (globalThis as any).rootURI;
     if (rootURI) {
       Zotero.PreferencePanes.register({
