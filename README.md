@@ -4,6 +4,8 @@
 
 选中文本后按快捷键即可翻译，支持 `OpenAI Compatible / LLM`、`DeepL`、`LibreTranslate`，并内置多种常用 API 预设。
 
+![Zotero Translate Preview](./Weixin%20Image_20260412205252_357_20.png)
+
 ## Features
 
 - 面向 `Zotero 7` 的 PDF 选中文本翻译
