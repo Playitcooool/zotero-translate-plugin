@@ -1,17 +1,22 @@
 // Zotero plugin bootstrap entry point
 // This is loaded by bootstrap.js via Services.scriptloader.loadSubScript
 
-import { getAllSettings, setSetting } from './background/settings-manager';
+import { setSetting } from './background/settings-manager';
 import { translate } from './background/llm-client';
-import { openSettingsWindow } from './background/settings-ui';
 import { initContentScripts, injectStyles } from './content/content';
+
+// Register preferences pane when script loads
+const rootURI = (globalThis as any).rootURI;
+if (rootURI) {
+  Zotero.PreferencePanes.register({
+    pluginID: 'zoterotranslate@plugin.local',
+    src: rootURI + 'chrome/content/preferences.xhtml',
+    label: 'Zotero Translate',
+  });
+}
 
 // Plugin instance - Zotero calls these hooks
 const hooks = {
-  onStartUp: async () => {
-    console.log('Zotero Translate Plugin started');
-  },
-
   onMainWindowLoad: async (window: Window) => {
     // Inject content scripts into the window
     injectStyles();
@@ -46,17 +51,13 @@ const hooks = {
         if (e.data.modelName !== undefined) setSetting('modelName', e.data.modelName);
         if (e.data.targetLang !== undefined) setSetting('targetLang', e.data.targetLang);
       }
-
-      if (e.data?.type === 'ZOTERO_OPEN_SETTINGS') {
-        openSettingsWindow();
-      }
     });
 
     // Set up keyboard shortcut Ctrl+Shift+, to open settings (cross-platform)
     window.addEventListener('keydown', (e) => {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === ',') {
         e.preventDefault();
-        openSettingsWindow();
+        Zotero.PreferencePanes.open('zoterotranslate@plugin.local');
       }
     });
   },
@@ -67,6 +68,11 @@ const hooks = {
 
   onShutdown: async () => {
     // Cleanup
+  },
+
+  onPrefsLoad: async (event: Event) => {
+    // Preferences window loaded
+    console.log('Zotero Translate preferences loaded');
   },
 };
 
