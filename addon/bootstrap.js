@@ -24,6 +24,11 @@ async function startup({ id, version, resourceURI, rootURI }, reason) {
   globalThis.rootURI = rootURI;
 
   Services.scriptloader.loadSubScript(
+    `${rootURI}prefs.js`,
+    ctx,
+  );
+
+  Services.scriptloader.loadSubScript(
     `${rootURI}chrome/content/scripts/__addonRef__.js`,
     ctx,
   );

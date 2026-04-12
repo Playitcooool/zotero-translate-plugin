@@ -10,12 +10,32 @@
       </columns>
       <rows>
         <row align="center">
-          <label control="zotero-translate-apiAddress" value="API Address"/>
-          <textbox id="zotero-translate-apiAddress"
-                   preference="extensions.zotero.zoterotranslate.apiAddress"/>
+          <label control="apiAddress" value="API Address"/>
+          <textbox id="apiAddress" flex="1" placeholder="http://localhost:11434/v1"/>
+        </row>
+        <row align="center">
+          <label control="apiKey" value="API Key"/>
+          <textbox id="apiKey" flex="1" type="password" placeholder="sk-..."/>
+        </row>
+        <row align="center">
+          <label control="modelName" value="Model"/>
+          <textbox id="modelName" flex="1" placeholder="gpt-4"/>
+        </row>
+        <row align="center">
+          <label control="targetLang" value="Target Language"/>
+          <textbox id="targetLang" flex="1" placeholder="Chinese"/>
         </row>
       </rows>
     </grid>
   </groupbox>
+
+  <groupbox>
+    <caption label="Prompt Template"/>
+    <description>Variables: ${text}, ${targetLang}, ${sourceLang}</description>
+    <textbox id="promptTemplate" flex="1" rows="4" multiline="true"
+             placeholder="Translate to ${targetLang}: ${text}"/>
+  </groupbox>
+
+  <button id="saveBtn" label="Save Settings" style="margin-top: 10px;"/>
 
 </vbox>
