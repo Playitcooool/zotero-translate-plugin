@@ -2,6 +2,8 @@
   "name": "zotero-translate-plugin",
   "version": "0.1.0",
   "description": "Zotero 划词翻译插件，调用本地 LLM API",
+  "author": "Your Name",
+  "homepage": "https://github.com/USER/zotero-translate-plugin",
   "repository": {
     "type": "git",
     "url": "https://github.com/USER/zotero-translate-plugin.git"

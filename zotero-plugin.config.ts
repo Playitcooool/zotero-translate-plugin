@@ -7,13 +7,14 @@ export default defineConfig({
   name: pkg.config.addonName,
   id: pkg.config.addonID,
   namespace: pkg.config.addonRef,
-  updateURL: `https://github.com/USER/zotero-translate-plugin/releases/download/release/update.json`,
+  updateURL: undefined as undefined,
 
   build: {
     assets: ["addon/**/*.*"],
     define: {
       ...pkg.config,
       author: pkg.author,
+      homepage: pkg.homepage,
       description: pkg.description,
       buildVersion: pkg.version,
       buildTime: "{{buildTime}}",

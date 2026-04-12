@@ -70,8 +70,8 @@ const hooks = {
   },
 };
 
-// Make hooks globally accessible
-(Zotero as any).__addonInstance__ = { hooks };
+// Make hooks globally accessible - must match the name bootstrap.js expects
+(Zotero as any).ZoteroTranslate = { hooks };
 
 // Also export for potential direct use
 export { hooks };
