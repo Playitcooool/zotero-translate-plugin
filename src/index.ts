@@ -8,22 +8,31 @@ import { initContentScripts, injectStyles } from './content/content';
 // Plugin instance - Zotero calls these hooks
 const hooks = {
   onStartup: async () => {
-    // Wait for Zotero to be fully initialized before registering preference pane
-    await Promise.all([
-      Zotero.initializationPromise,
-      Zotero.unlockPromise,
-      Zotero.uiReadyPromise,
-    ]);
+    try {
+      // Wait for Zotero to be fully initialized before registering preference pane
+      await Promise.all([
+        Zotero.initializationPromise,
+        Zotero.unlockPromise,
+        Zotero.uiReadyPromise,
+      ]);
 
-    console.log('Zotero Translate Plugin starting...');
-    // Register preferences pane
-    const rootURI = (globalThis as any).rootURI;
-    if (rootURI) {
-      Zotero.PreferencePanes.register({
-        pluginID: 'zoterotranslate@plugin.local',
-        src: rootURI + 'chrome/content/preferences.xhtml',
-        label: 'Zotero Translate',
-      });
+      console.log('Zotero Translate Plugin starting...');
+      // Register preferences pane
+      const rootURI = (globalThis as any).rootURI;
+      console.log('rootURI:', rootURI);
+      if (rootURI) {
+        console.log('Registering preference pane...');
+        Zotero.PreferencePanes.register({
+          pluginID: 'zoterotranslate@plugin.local',
+          src: rootURI + 'chrome/content/preferences.xhtml',
+          label: 'Zotero Translate',
+        });
+        console.log('Preference pane registered successfully');
+      } else {
+        console.error('rootURI is undefined!');
+      }
+    } catch (e) {
+      console.error('Zotero Translate onStartup error:', e);
     }
   },
 
