@@ -1,0 +1,24 @@
+{
+  "manifest_version": 2,
+  "name": "Zotero Translate",
+  "version": "0.1.0",
+  "description": "划词翻译插件，调用本地 LLM",
+  "author": "Your Name",
+  "id": "translate-plugin@example.com",
+  "scripts": {
+    "bootstrap": "bootstrap.js",
+    "run": "bootstrap.js"
+  },
+  "permissions": [
+    "browser",
+    "notifications"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["chrome://zotero/content/reader/*"],
+      "js": ["content/selection-monitor.js", "content/popup.js"],
+      "css": ["content/popup.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
