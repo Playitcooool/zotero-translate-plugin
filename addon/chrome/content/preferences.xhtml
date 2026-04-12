@@ -1,23 +1,165 @@
 <vbox xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
       xmlns:html="http://www.w3.org/1999/xhtml"
-      id="zotero-prefpane-zoterotranslate" flex="1" style="padding: 10px;"
+      id="zotero-prefpane-zoterotranslate"
+      flex="1"
+      class="zt-root"
       onload="Zotero.ZoteroTranslate.hooks.onPrefsLoad(event)">
 
-  <label value="API Address"/>
-  <html:input id="apiAddress" type="text" value="http://localhost:11434/v1" style="width: 300px; margin-bottom: 5px;"/>
+  <html:style>
+    .zt-root {
+      padding: 18px;
+      background: linear-gradient(180deg, #f6f7fb 0%, #edf1f6 100%);
+      color: #172033;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+    }
+    .zt-card {
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid #d9e2ee;
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 14px;
+      box-shadow: 0 10px 25px rgba(33, 50, 79, 0.06);
+    }
+    .zt-title {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .zt-subtitle {
+      font-size: 13px;
+      color: #5a6882;
+      margin-bottom: 16px;
+    }
+    .zt-section-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin: 0 0 12px;
+      color: #22314d;
+    }
+    .zt-field {
+      margin-bottom: 14px;
+    }
+    .zt-label {
+      display: block;
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+    .zt-help {
+      display: block;
+      margin-top: 6px;
+      color: #627089;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .zt-input,
+    .zt-textarea {
+      width: 100%;
+      box-sizing: border-box;
+      border: 1px solid #c9d5e4;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 13px;
+      color: #172033;
+      background: #fff;
+    }
+    .zt-textarea {
+      min-height: 88px;
+      resize: vertical;
+      font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+    .zt-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-top: 8px;
+    }
+    .zt-status {
+      font-size: 12px;
+      color: #2f6b3b;
+      visibility: hidden;
+    }
+  </html:style>
 
-  <label value="API Key"/>
-  <html:input id="apiKey" type="password" style="width: 300px; margin-bottom: 5px;"/>
+  <vbox class="zt-card">
+    <html:div class="zt-title">Zotero Translate</html:div>
+    <html:div class="zt-subtitle">为 Zotero 7 的 PDF 选中文本提供快捷翻译。先选中文本，再按快捷键触发。</html:div>
+  </vbox>
 
-  <label value="Model"/>
-  <html:input id="modelName" type="text" value="gpt-4" style="width: 300px; margin-bottom: 5px;"/>
+  <vbox class="zt-card">
+    <html:div class="zt-section-title">接口配置</html:div>
 
-  <label value="Target Language"/>
-  <html:input id="targetLang" type="text" value="Chinese" style="width: 300px; margin-bottom: 5px;"/>
+    <html:div class="zt-field">
+      <html:label class="zt-label" for="provider">翻译引擎</html:label>
+      <html:select id="provider" class="zt-input">
+        <html:option value="openai-compatible">OpenAI Compatible / LLM</html:option>
+        <html:option value="deepl">DeepL</html:option>
+        <html:option value="libretranslate">LibreTranslate</html:option>
+      </html:select>
+      <html:span class="zt-help">LLM 适合自建或兼容 OpenAI 的接口；DeepL 和 LibreTranslate 属于传统翻译 API。</html:span>
+    </html:div>
 
-  <label value="Prompt Template"/>
-  <html:textarea id="promptTemplate" rows="4" style="width: 300px; margin-bottom: 5px;">Translate to ${targetLang}: ${text}</html:textarea>
+    <html:div class="zt-field">
+      <html:label class="zt-label" for="apiPreset">接口预设</html:label>
+      <html:select id="apiPreset" class="zt-input">
+        <html:option value="ollama">Ollama（本地）</html:option>
+        <html:option value="openai">OpenAI</html:option>
+        <html:option value="deepseek">DeepSeek</html:option>
+        <html:option value="openrouter">OpenRouter</html:option>
+        <html:option value="siliconflow">SiliconFlow</html:option>
+        <html:option value="groq">Groq</html:option>
+        <html:option value="deepl-free">DeepL Free</html:option>
+        <html:option value="deepl-pro">DeepL Pro</html:option>
+        <html:option value="libretranslate-default">LibreTranslate</html:option>
+        <html:option value="custom">自定义</html:option>
+      </html:select>
+      <html:span class="zt-help">选择后会自动填充推荐接口地址，也可以再手动修改。</html:span>
+    </html:div>
 
-  <button id="saveBtn" label="Save Settings" style="margin-top: 10px;"/>
+    <html:div class="zt-field">
+      <html:label class="zt-label" for="apiAddress">API 地址</html:label>
+      <html:input id="apiAddress" class="zt-input" type="text" value="http://localhost:11434/v1"/>
+      <html:span id="apiAddressHelp" class="zt-help">OpenAI Compatible 服务地址，例如 `http://localhost:11434/v1`。</html:span>
+    </html:div>
+
+    <html:div class="zt-field">
+      <html:label class="zt-label" for="apiKey">API Key</html:label>
+      <html:input id="apiKey" class="zt-input" type="password"/>
+      <html:span class="zt-help">如果你的服务不需要密钥，可以留空。</html:span>
+    </html:div>
+
+    <html:div class="zt-field zt-llm-only">
+      <html:label class="zt-label" for="modelName">模型名称</html:label>
+      <html:input id="modelName" class="zt-input" type="text" value="gpt-4"/>
+    </html:div>
+  </vbox>
+
+  <vbox class="zt-card">
+    <html:div class="zt-section-title">翻译行为</html:div>
+
+    <html:div class="zt-field">
+      <html:label class="zt-label" for="targetLang">目标语言</html:label>
+      <html:input id="targetLang" class="zt-input" type="text" value="中文"/>
+    </html:div>
+
+    <html:div class="zt-field">
+      <html:label class="zt-label" for="shortcut">快捷键</html:label>
+      <html:input id="shortcut" class="zt-input" type="text" value="Cmd+T"/>
+      <html:span class="zt-help">支持 `Cmd+T`、`Cmd+Shift+T`、`Ctrl+T`、`Ctrl+Alt+T` 这类格式。</html:span>
+    </html:div>
+
+    <html:div class="zt-field zt-llm-only">
+      <html:label class="zt-label" for="promptTemplate">Prompt 模板</html:label>
+      <html:textarea id="promptTemplate" class="zt-textarea" rows="5">你是专业翻译引擎。请将以下文本翻译成${targetLang}，只输出译文，不要添加解释、标题、引号、注释或任何额外内容：
+${text}</html:textarea>
+      <html:span class="zt-help">默认模板会强制模型只输出译文。可用变量：`${text}`、`${targetLang}`、`${sourceLang}`。</html:span>
+    </html:div>
+  </vbox>
+
+  <hbox class="zt-actions">
+    <button id="saveBtn" label="保存设置"/>
+    <button id="resetBtn" label="恢复默认"/>
+    <html:span id="settingsStatus" class="zt-status">已保存</html:span>
+  </hbox>
 
 </vbox>

@@ -7,11 +7,14 @@
 declare namespace _ZoteroTypes {
   interface Prefs {
     PluginPrefsMap: {
+      "provider": string;
+      "apiPreset": string;
       "apiAddress": string;
       "apiKey": string;
       "modelName": string;
       "targetLang": string;
       "promptTemplate": string;
+      "shortcut": string;
     };
   }
 }
