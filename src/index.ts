@@ -249,7 +249,6 @@ function doTranslate(text: string): void {
 function setupMainWindowShortcuts(window: Window): void {
   try {
     const trackedWindow = window as Window & {
-      __zoteroTranslateShortcutInstalled?: boolean;
       __zoteroTranslateShortcutHandler?: (event: KeyboardEvent) => void;
     };
 
@@ -260,7 +259,6 @@ function setupMainWindowShortcuts(window: Window): void {
 
     trackedWindow.__zoteroTranslateShortcutHandler = handleMainWindowKeydown;
     window.addEventListener('keydown', trackedWindow.__zoteroTranslateShortcutHandler, true);
-    trackedWindow.__zoteroTranslateShortcutInstalled = true;
     log('Installed main window shortcut hook');
   } catch (e) {
     log(`Failed to set up main window shortcut hook: ${e}`);
@@ -270,7 +268,6 @@ function setupMainWindowShortcuts(window: Window): void {
 function teardownMainWindowShortcuts(window: Window): void {
   try {
     const trackedWindow = window as Window & {
-      __zoteroTranslateShortcutInstalled?: boolean;
       __zoteroTranslateShortcutHandler?: (event: KeyboardEvent) => void;
     };
 
@@ -278,7 +275,6 @@ function teardownMainWindowShortcuts(window: Window): void {
       window.removeEventListener('keydown', trackedWindow.__zoteroTranslateShortcutHandler, true);
       delete trackedWindow.__zoteroTranslateShortcutHandler;
     }
-    delete trackedWindow.__zoteroTranslateShortcutInstalled;
     log('Removed main window shortcut hook');
   } catch (e) {
     log(`Failed to tear down main window shortcut hook: ${e}`);

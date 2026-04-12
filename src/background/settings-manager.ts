@@ -49,10 +49,3 @@ export function getAllSettings(): TranslateSettings {
     shortcut: getSetting('shortcut'),
   };
 }
-
-export function resetSettings(): void {
-  const entries = Object.entries(DEFAULT_SETTINGS) as Array<[keyof TranslateSettings, string]>;
-  for (const [key, value] of entries) {
-    setSetting(key, value);
-  }
-}
