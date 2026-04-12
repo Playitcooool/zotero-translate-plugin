@@ -2,31 +2,36 @@
 
 import { translate } from './background/llm-client';
 
-// Use Zotero.log instead of console.log in bootstrap context
-const log = (msg: string) => Zotero.log(`ZoteroTranslate: ${msg}`);
+// Use Services.console.logStringMessage for logging in bootstrap context
+declare const Services: any;
+const log = (msg: string) => {
+  try {
+    Services.console.logStringMessage(`ZoteroTranslate: ${msg}`);
+  } catch (e) {
+    Zotero.log(`ZoteroTranslate: ${msg}`);
+  }
+};
 const logError = (msg: string, e?: unknown) => {
-  Zotero.log(`ZoteroTranslate ERROR: ${msg}`);
-  if (e instanceof Error) Zotero.log(e.message);
+  log(`ERROR: ${msg}`);
+  if (e instanceof Error) log(e.message);
 };
 
 const hooks = {
   onStartup: async () => {
     try {
-      await Promise.all([
-        Zotero.initializationPromise,
-        Zotero.unlockPromise,
-        Zotero.uiReadyPromise,
-      ]);
-
       log('Plugin starting...');
       const rootURI = (globalThis as any).rootURI;
+      log(`rootURI = ${rootURI}`);
       if (rootURI) {
+        log('Registering preference pane...');
         Zotero.PreferencePanes.register({
           pluginID: 'zoterotranslate@plugin.local',
           src: rootURI + 'chrome/content/preferences.xhtml',
           label: 'Zotero Translate',
         });
         log('Preference pane registered');
+      } else {
+        log('rootURI is undefined - cannot register preference pane');
       }
     } catch (e) {
       logError('onStartup failed', e);
