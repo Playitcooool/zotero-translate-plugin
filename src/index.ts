@@ -5,18 +5,21 @@ import { setSetting } from './background/settings-manager';
 import { translate } from './background/llm-client';
 import { initContentScripts, injectStyles } from './content/content';
 
-// Register preferences pane when script loads
-const rootURI = (globalThis as any).rootURI;
-if (rootURI) {
-  Zotero.PreferencePanes.register({
-    pluginID: 'zoterotranslate@plugin.local',
-    src: rootURI + 'chrome/content/preferences.xhtml',
-    label: 'Zotero Translate',
-  });
-}
-
 // Plugin instance - Zotero calls these hooks
 const hooks = {
+  onStartup: async () => {
+    console.log('Zotero Translate Plugin starting...');
+    // Register preferences pane - called after Zotero is initialized
+    const rootURI = (globalThis as any).rootURI;
+    if (rootURI) {
+      Zotero.PreferencePanes.register({
+        pluginID: 'zoterotranslate@plugin.local',
+        src: rootURI + 'chrome/content/preferences.xhtml',
+        label: 'Zotero Translate',
+      });
+    }
+  },
+
   onMainWindowLoad: async (window: Window) => {
     // Inject content scripts into the window
     injectStyles();

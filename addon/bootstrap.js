@@ -26,14 +26,19 @@ async function startup({ id, version, resourceURI, rootURI }, reason) {
     `${rootURI}chrome/content/scripts/__addonRef__.js`,
     ctx,
   );
+
+  // Call onStartup hook after script is loaded
+  if (ctx.ZoteroTranslate?.hooks?.onStartup) {
+    await ctx.ZoteroTranslate.hooks.onStartup();
+  }
 }
 
 async function onMainWindowLoad({ window }, reason) {
-  Zotero.__addonInstance__?.hooks.onMainWindowLoad(window);
+  Zotero.ZoteroTranslate?.hooks?.onMainWindowLoad?.(window);
 }
 
 async function onMainWindowUnload({ window }, reason) {
-  Zotero.__addonInstance__?.hooks.onMainWindowUnload(window);
+  Zotero.ZoteroTranslate?.hooks?.onMainWindowUnload?.(window);
 }
 
 function shutdown({ id, version, resourceURI, rootURI }, reason) {
@@ -41,7 +46,7 @@ function shutdown({ id, version, resourceURI, rootURI }, reason) {
     return;
   }
 
-  Zotero.__addonInstance__?.hooks.onShutdown();
+  Zotero.ZoteroTranslate?.hooks?.onShutdown?.();
 
   Cc["@mozilla.org/intl/stringbundle;1"]
     .getService(Components.interfaces.nsIStringBundleService)
