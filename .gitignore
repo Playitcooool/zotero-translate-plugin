@@ -4,3 +4,4 @@ dist/
 *.xpi
 .scaffold/
 .env
+.DS_Store
