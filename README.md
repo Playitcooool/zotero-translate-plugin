@@ -1,91 +1,57 @@
 # Zotero Translate
 
-轻量、可拖动的 Zotero 7 PDF 划词翻译插件。
+Zotero 7 PDF 划词翻译插件。
 
-选中文本后按快捷键即可翻译，支持 `OpenAI Compatible / LLM`、`DeepL`、`LibreTranslate`，并内置多种常用 API 预设。
+选中文本后按快捷键即可翻译，支持 `OpenAI Compatible / LLM`、`DeepL`、`LibreTranslate`，并内置常用 API 预设。
 
 ![Zotero Translate Preview](./docs/images/preview.png)
 
-## Features
+## Highlights
 
 - 面向 `Zotero 7` 的 PDF 选中文本翻译
-- 默认快捷键 `Mod+T`，可在设置页自定义
-- 支持多种翻译后端
-- `OpenAI Compatible / LLM`
-- `DeepL`
-- `LibreTranslate`
-- 内置常用接口预设
-- `Ollama`
-- `OpenAI`
-- `DeepSeek`
-- `OpenRouter`
-- `SiliconFlow`
-- `Groq`
-- `DeepL Free / Pro`
+- 默认快捷键：`Windows / Linux = Ctrl+T`，`macOS = Cmd+T`
+- 支持 `OpenAI Compatible / LLM`、`DeepL`、`LibreTranslate`
+- 内置常用预设：`Ollama`、`OpenAI`、`DeepSeek`、`OpenRouter`、`SiliconFlow`、`Groq`、`DeepL Free / Pro`
 - 可拖动的翻译面板，默认显示在右下角
 - 支持复制译文、重新翻译、右键关闭
 
-## Preview
+## Quick Start
 
-插件交互分成两部分：
+### 1. 下载插件
 
-1. 在 Zotero PDF 阅读器中选中文本
-2. 按下快捷键打开翻译面板
+- 直接下载：
+  `https://github.com/Playitcooool/zotero-translate-plugin/releases/latest/download/zotero-translate.xpi`
+- 发布页：
+  `https://github.com/Playitcooool/zotero-translate-plugin/releases`
 
-翻译面板默认显示：
-
-- 原文摘要
-- 译文正文
-- 复制译文
-- 重新翻译
-- 关闭
-
-## Install
-
-### Direct Download
-
-当前版本 `.xpi` 可直接下载：
-
-- `https://github.com/Playitcooool/zotero-translate-plugin/releases/latest/download/zotero-translate.xpi`
-
-发布页：
-
-- `https://github.com/Playitcooool/zotero-translate-plugin/releases`
-
-说明：
-
-- 直链使用 GitHub 常见的 `releases/latest/download/<asset>` 形式
-- 每次发布请上传同名资产 `zotero-translate.xpi`，这样 README 无需随版本改动
-
-### From Source
-
-```bash
-npm install
-npm run build
-```
-
-构建完成后安装生成的 `.xpi` 插件包。
-
-### In Zotero
+### 2. 安装到 Zotero
 
 1. 打开 Zotero
 2. 进入 `Tools -> Plugins`
-3. 选择右上角设置按钮
+3. 点击右上角设置按钮
 4. 选择 `Install Add-on From File...`
-5. 安装构建生成的 `.xpi`
+5. 选择下载好的 `zotero-translate.xpi`
 
-## Usage
+### 3. 开始使用
 
 1. 在 Zotero 中打开 PDF
 2. 选中需要翻译的文本
-3. 按下快捷键，默认是 `Mod+T`
+3. 按下快捷键：`Windows / Linux = Ctrl+T`，`macOS = Cmd+T`
 4. 在右下角翻译面板中查看结果
+
+## 必要配置
+
+首次使用前，请先在插件设置页选择翻译服务并填写对应配置。
+
+- `OpenAI Compatible / LLM`：填写 `API 地址`、`API Key`、`模型名称`、`Prompt 模板`
+- `DeepL`：填写 `DeepL Free / Pro` 和 `API Key`
+- `LibreTranslate`：填写接口地址，必要时填写 `API Key`
+
+默认 Prompt 会强制模型只输出译文，不添加解释或额外说明。
 
 ## Providers
 
 ### OpenAI Compatible / LLM
-
-适合以下场景：
 
 - 本地 `Ollama`
 - `OpenAI`
@@ -95,32 +61,13 @@ npm run build
 - `Groq`
 - 任意兼容 OpenAI Chat Completions 的接口
 
-需要配置：
-
-- `API 地址`
-- `API Key`
-- `模型名称`
-- `Prompt 模板`
-
-默认 Prompt 会强制模型只输出译文，不添加解释或额外说明。
-
 ### DeepL
 
-适合追求传统翻译质量和稳定性的用户。
-
-需要配置：
-
-- `DeepL Free` 或 `DeepL Pro`
-- `API Key`
+- 适合追求传统翻译质量和稳定性的用户
 
 ### LibreTranslate
 
-适合想使用开源翻译服务或自托管实例的用户。
-
-需要配置：
-
-- `LibreTranslate` 接口地址
-- 可选 `API Key`
+- 适合想使用开源翻译服务或自托管实例的用户
 
 ## Settings
 
@@ -137,11 +84,11 @@ npm run build
 
 当你切换不同翻译引擎时，设置页会自动隐藏不适用的字段。
 
-快捷键说明：
+默认快捷键：
 
-- `Mod` 在 macOS 下等于 `Cmd`
-- `Mod` 在 Windows / Linux 下等于 `Ctrl`
-- 推荐写法：`Mod+T`、`Mod+Shift+T`
+- `Windows / Linux`：`Ctrl+T`
+- `macOS`：`Cmd+T`
+- 可在设置页改成其他组合键，例如 `Ctrl+Shift+T` 或 `Cmd+Shift+T`
 
 ## Compatibility
 
@@ -154,13 +101,15 @@ npm run build
 
 ```bash
 npm install
-npm run watch
+npm run build
 ```
 
-手动打包：
+构建完成后安装生成的 `.xpi` 插件包。
+
+开发模式：
 
 ```bash
-npm run build
+npm run watch
 ```
 
 ## Project Structure
