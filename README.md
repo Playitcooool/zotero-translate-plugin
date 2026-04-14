@@ -19,10 +19,8 @@ Zotero 7 PDF 划词翻译插件。
 
 ### 1. 下载插件
 
-- 直接下载：
-  `https://github.com/Playitcooool/zotero-translate-plugin/releases/latest/download/zotero-translate.xpi`
-- 发布页：
-  `https://github.com/Playitcooool/zotero-translate-plugin/releases`
+- [直接下载 `.xpi`](https://github.com/Playitcooool/zotero-translate-plugin/releases/latest/download/zotero-translate.xpi)
+- [查看 Releases 页面](https://github.com/Playitcooool/zotero-translate-plugin/releases)
 
 ### 2. 安装到 Zotero
 
