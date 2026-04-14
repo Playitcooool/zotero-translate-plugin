@@ -11,6 +11,13 @@ type Provider = 'openai-compatible' | 'deepl' | 'libretranslate';
 export async function translate(text: string, sourceLang: string = 'auto'): Promise<TranslateResult> {
   const provider = getSetting('provider') as Provider;
 
+  if (!text.trim()) {
+    return {
+      success: false,
+      error: '未检测到可翻译的文本',
+    };
+  }
+
   try {
     if (provider === 'deepl') {
       return await translateWithDeepL(text, sourceLang);
@@ -61,7 +68,7 @@ async function translateWithOpenAICompatible(text: string, sourceLang: string): 
   });
 
   if (!response.ok) {
-    return { success: false, error: `API 错误: ${response.status}` };
+    return { success: false, error: await buildHttpErrorMessage(response, 'OpenAI Compatible API') };
   }
 
   const data = (await response.json()) as {
@@ -105,7 +112,7 @@ async function translateWithDeepL(text: string, sourceLang: string): Promise<Tra
   });
 
   if (!response.ok) {
-    return { success: false, error: `DeepL 错误: ${response.status}` };
+    return { success: false, error: await buildHttpErrorMessage(response, 'DeepL') };
   }
 
   const data = (await response.json()) as {
@@ -148,7 +155,7 @@ async function translateWithLibreTranslate(text: string, sourceLang: string): Pr
   });
 
   if (!response.ok) {
-    return { success: false, error: `LibreTranslate 错误: ${response.status}` };
+    return { success: false, error: await buildHttpErrorMessage(response, 'LibreTranslate') };
   }
 
   const data = (await response.json()) as {
@@ -217,4 +224,29 @@ function normalizeSimpleLang(value: string): string {
     俄文: 'ru',
   };
   return aliases[normalized] || normalized || 'zh';
+}
+
+async function buildHttpErrorMessage(response: Response, label: string): Promise<string> {
+  const statusText = response.statusText?.trim();
+  const fallback = `${label} 错误: ${response.status}${statusText ? ` ${statusText}` : ''}`;
+
+  try {
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const data = await response.json() as {
+        error?: string | { message?: string };
+        message?: string;
+        detail?: string;
+      };
+      const message = typeof data.error === 'string'
+        ? data.error
+        : data.error?.message || data.message || data.detail;
+      return message ? `${fallback} - ${message}` : fallback;
+    }
+
+    const text = (await response.text()).trim();
+    return text ? `${fallback} - ${text.slice(0, 200)}` : fallback;
+  } catch {
+    return fallback;
+  }
 }

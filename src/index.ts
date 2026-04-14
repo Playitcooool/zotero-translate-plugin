@@ -1,7 +1,7 @@
 // Zotero plugin bootstrap entry point
 
 import { translate } from './background/llm-client';
-import { DEFAULT_SETTINGS, getSetting, setSetting } from './background/settings-manager';
+import { DEFAULT_SETTINGS, getSetting, migrateLegacyDefaults, setSetting, type TranslateSettings } from './background/settings-manager';
 
 declare const Services: any;
 declare const Components: any;
@@ -21,6 +21,7 @@ let latestSelectionText = '';
 let lastNonEmptySelectionText = '';
 let activeMainWindow: Window | null = null;
 let translationPopupPosition: { right: number; bottom: number } | null = null;
+let latestTranslationRequestId = 0;
 
 const API_PRESETS: Record<string, { provider: string; apiAddress: string; apiKeyPlaceholder?: string; modelPlaceholder?: string }> = {
   ollama: {
@@ -82,6 +83,7 @@ const hooks = {
   onStartup: async () => {
     try {
       log('Plugin starting...');
+      migrateLegacyDefaults();
       const rootURI = (globalThis as any).rootURI;
       if (rootURI) {
         Zotero.PreferencePanes.register({
@@ -131,6 +133,15 @@ const hooks = {
       log('Could not get document');
       return;
     }
+
+    const trackedDoc = doc as Document & { __zoteroTranslatePrefsBound?: boolean };
+    if (trackedDoc.__zoteroTranslatePrefsBound) {
+      applySettingsToForm(doc, getAllFormSettings());
+      applyApiPreset(doc, (doc.getElementById('apiPreset') as HTMLSelectElement | null)?.value || DEFAULT_SETTINGS.apiPreset, false);
+      updateSettingsFormVisibility(doc);
+      return;
+    }
+    trackedDoc.__zoteroTranslatePrefsBound = true;
 
     const fields = ['provider', 'apiPreset', 'apiAddress', 'apiKey', 'modelName', 'targetLang', 'promptTemplate', 'shortcut'];
     fields.forEach(field => {
@@ -218,12 +229,17 @@ function showAlert(title: string, message: string): void {
 }
 
 function doTranslate(text: string): void {
+  const requestId = ++latestTranslationRequestId;
   showTranslationPopup({
     originalText: text,
     state: 'loading',
   });
 
   translate(text).then(result => {
+    if (requestId !== latestTranslationRequestId) {
+      log(`Ignored stale translation result for request ${requestId}`);
+      return;
+    }
     if (result.success && result.translation) {
       showTranslationPopup({
         originalText: text,
@@ -238,6 +254,10 @@ function doTranslate(text: string): void {
       });
     }
   }).catch(err => {
+    if (requestId !== latestTranslationRequestId) {
+      log(`Ignored stale translation error for request ${requestId}`);
+      return;
+    }
     showTranslationPopup({
       originalText: text,
       state: 'error',
@@ -284,6 +304,9 @@ function teardownMainWindowShortcuts(window: Window): void {
 function handleMainWindowKeydown(event: KeyboardEvent): void {
   try {
     activeMainWindow = event.currentTarget as Window;
+    if (shouldIgnoreShortcut(event)) {
+      return;
+    }
     const shortcut = normalizeShortcut(getSetting('shortcut'));
     if (!shortcut) {
       return;
@@ -298,6 +321,7 @@ function handleMainWindowKeydown(event: KeyboardEvent): void {
     const textToTranslate = text || fallbackText;
     if (!textToTranslate) {
       log('Shortcut pressed without cached selection');
+      showToast(activeMainWindow, '请先在 PDF 中选中文本');
       return;
     }
     if (!text && fallbackText) {
@@ -350,17 +374,26 @@ function unregisterReaderSelectionListener(): void {
 }
 
 function handleReaderSelectionPopup(event: {
-  reader?: unknown;
-  params?: Record<string, unknown>;
+  reader?: { _iframeWindow?: Window } | unknown;
+  doc?: Document;
+  params?: {
+    annotation?: {
+      text?: unknown;
+      comment?: unknown;
+    };
+  };
 }): void {
   try {
     if (!event.reader || typeof event.reader !== 'object') {
       return;
     }
 
-    const selectedText = extractTextCandidate(
-      (event.params?.annotation as { text?: unknown } | undefined)?.text,
-    );
+    const selectedText = firstNonEmptyText([
+      extractTextCandidate(event.params?.annotation?.text),
+      extractTextCandidate(event.params?.annotation?.comment),
+      extractWindowSelectionText(event.doc?.defaultView || null),
+      extractWindowSelectionText((event.reader as { _iframeWindow?: Window })._iframeWindow || null),
+    ]);
     if (!selectedText) {
       return;
     }
@@ -375,6 +408,18 @@ function handleReaderSelectionPopup(event: {
 
 function extractTextCandidate(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function extractWindowSelectionText(window: Window | null): string {
+  try {
+    return window?.getSelection?.()?.toString().trim() || '';
+  } catch {
+    return '';
+  }
+}
+
+function firstNonEmptyText(values: Array<string>): string {
+  return values.find(value => value.trim()) || '';
 }
 
 function normalizeShortcut(shortcut: string): string {
@@ -410,6 +455,20 @@ function matchesShortcut(event: KeyboardEvent, shortcut: string): boolean {
     && event.shiftKey === modifiers.has('shift');
 }
 
+function shouldIgnoreShortcut(event: KeyboardEvent): boolean {
+  const target = event.target as HTMLElement | null;
+  if (!target) {
+    return false;
+  }
+
+  const tagName = target.tagName?.toLowerCase();
+  return !!target.isContentEditable
+    || tagName === 'input'
+    || tagName === 'textarea'
+    || tagName === 'select'
+    || !!target.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]');
+}
+
 function normalizeEventKey(key: string): string {
   return key.trim().toLowerCase();
 }
@@ -422,13 +481,26 @@ function isMacPlatform(): boolean {
   }
 }
 
-function applySettingsToForm(doc: Document, values: Record<string, string>): void {
-  for (const [key, value] of Object.entries(values)) {
+function applySettingsToForm(doc: Document, values: TranslateSettings): void {
+  for (const [key, value] of Object.entries(values) as Array<[keyof TranslateSettings, string]>) {
     const el = doc.getElementById(key) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
     if (el && 'value' in el) {
       el.value = value;
     }
   }
+}
+
+function getAllFormSettings(): TranslateSettings {
+  return {
+    provider: getSetting('provider'),
+    apiPreset: getSetting('apiPreset'),
+    apiAddress: getSetting('apiAddress'),
+    apiKey: getSetting('apiKey'),
+    modelName: getSetting('modelName'),
+    targetLang: getSetting('targetLang'),
+    promptTemplate: getSetting('promptTemplate'),
+    shortcut: getSetting('shortcut'),
+  };
 }
 
 function applyApiPreset(doc: Document, presetKey: string, forceAddress: boolean = true): void {
@@ -568,35 +640,25 @@ function showTranslationPopup(payload: {
     initializeTranslationPopupDrag(window, overlay);
     overlay.querySelector('.zt-popup-floating-close')?.addEventListener('click', () => hideTranslationPopup(window));
     overlay.querySelector('.zt-popup-dismiss')?.addEventListener('click', () => hideTranslationPopup(window));
-    overlay.querySelector('.zt-popup-context-close')?.addEventListener('mousedown', (event: MouseEvent) => {
-      event.preventDefault();
-      event.stopPropagation();
+    overlay.querySelector('.zt-popup-context-close')?.addEventListener('mousedown', (event: Event) => {
+      const mouseEvent = event as MouseEvent;
+      mouseEvent.preventDefault();
+      mouseEvent.stopPropagation();
       hideTranslationPopup(window);
     });
-    overlay.querySelector('.zt-popup-context-close')?.addEventListener('click', (event: MouseEvent) => {
-      event.preventDefault();
-      event.stopPropagation();
+    overlay.querySelector('.zt-popup-context-close')?.addEventListener('click', (event: Event) => {
+      const mouseEvent = event as MouseEvent;
+      mouseEvent.preventDefault();
+      mouseEvent.stopPropagation();
       hideTranslationPopup(window);
     });
-    overlay.querySelector('.zt-popup-copy')?.addEventListener('click', () => {
-      const text = (overlay?.querySelector('.zt-popup-copy') as HTMLButtonElement | null)?.dataset.translation || '';
-      if (!text) {
-        return;
-      }
-      copyToClipboard(text);
+    overlay.querySelector('.zt-popup-card')?.addEventListener('contextmenu', (event: Event) => {
+      const mouseEvent = event as MouseEvent;
+      mouseEvent.preventDefault();
+      mouseEvent.stopPropagation();
+      showTranslationContextMenu(overlay!, mouseEvent.clientX, mouseEvent.clientY);
     });
-    overlay.querySelector('.zt-popup-retry')?.addEventListener('click', () => {
-      const text = (overlay?.querySelector('.zt-popup-retry') as HTMLButtonElement | null)?.dataset.originalText || '';
-      if (text) {
-        doTranslate(text);
-      }
-    });
-    overlay.querySelector('.zt-popup-card')?.addEventListener('contextmenu', (event: MouseEvent) => {
-      event.preventDefault();
-      event.stopPropagation();
-      showTranslationContextMenu(overlay!, event.clientX, event.clientY);
-    });
-    overlay.querySelector('.zt-popup-context-menu')?.addEventListener('click', (event: MouseEvent) => {
+    overlay.querySelector('.zt-popup-context-menu')?.addEventListener('click', (event: Event) => {
       event.stopPropagation();
     });
     window.addEventListener('mousedown', (event: MouseEvent) => {
@@ -606,6 +668,34 @@ function showTranslationPopup(payload: {
       }
       hideTranslationContextMenu(overlay!);
     }, true);
+    window.addEventListener('keydown', (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && overlay?.getAttribute('data-visible') === 'true') {
+        hideTranslationPopup(window);
+      }
+    }, true);
+    overlay.querySelector('.zt-popup-copy')?.addEventListener('click', () => {
+      const button = overlay?.querySelector('.zt-popup-copy') as HTMLButtonElement | null;
+      const text = (overlay?.querySelector('.zt-popup-copy') as HTMLButtonElement | null)?.dataset.translation || '';
+      if (!text) {
+        return;
+      }
+      copyToClipboard(text);
+      showToast(window, '译文已复制');
+      if (button) {
+        button.textContent = '已复制';
+        window.setTimeout(() => {
+          if (button.dataset.translation) {
+            button.textContent = '复制译文';
+          }
+        }, 1200);
+      }
+    });
+    overlay.querySelector('.zt-popup-retry')?.addEventListener('click', () => {
+      const text = (overlay?.querySelector('.zt-popup-retry') as HTMLButtonElement | null)?.dataset.originalText || '';
+      if (text) {
+        doTranslate(text);
+      }
+    });
   }
 
   const originalEl = overlay.querySelector('.zt-popup-original');
@@ -652,6 +742,31 @@ function hideTranslationPopup(window: Window): void {
     overlay.setAttribute('data-visible', 'false');
     hideTranslationContextMenu(overlay as HTMLDivElement);
   }
+}
+
+function showToast(window: Window | null, message: string): void {
+  if (!window) {
+    return;
+  }
+
+  const doc = window.document;
+  let toast = doc.getElementById('zotero-translate-toast') as HTMLDivElement | null;
+  if (!toast) {
+    toast = doc.createElement('div');
+    toast.id = 'zotero-translate-toast';
+    doc.documentElement.appendChild(toast);
+  }
+
+  const trackedToast = toast as HTMLDivElement & { __hideTimer?: number };
+  if (trackedToast.__hideTimer) {
+    window.clearTimeout(trackedToast.__hideTimer);
+  }
+
+  toast.textContent = message;
+  toast.setAttribute('data-visible', 'true');
+  trackedToast.__hideTimer = window.setTimeout(() => {
+    toast?.setAttribute('data-visible', 'false');
+  }, 1800);
 }
 
 function initializeTranslationPopupDrag(window: Window, overlay: HTMLDivElement): void {
@@ -772,6 +887,28 @@ function ensureTranslationPopupStyles(doc: Document): void {
       color: #122033;
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
       animation: zt-popup-enter 0.18s ease-out;
+    }
+    #zotero-translate-toast {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      max-width: min(320px, calc(100vw - 36px));
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.92);
+      color: #fff;
+      font-size: 13px;
+      line-height: 1.4;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.24);
+      z-index: 2147483650;
+      opacity: 0;
+      transform: translateY(-6px);
+      pointer-events: none;
+      transition: opacity 0.16s ease, transform 0.16s ease;
+    }
+    #zotero-translate-toast[data-visible="true"] {
+      opacity: 1;
+      transform: translateY(0);
     }
     .zt-popup-context-menu {
       position: fixed;

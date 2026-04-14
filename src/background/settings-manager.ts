@@ -14,7 +14,7 @@ export const DEFAULT_SETTINGS: TranslateSettings = {
   apiPreset: 'ollama',
   apiAddress: 'http://localhost:11434/v1',
   apiKey: '',
-  modelName: 'gpt-4',
+  modelName: 'qwen2.5:latest',
   targetLang: '中文',
   promptTemplate: '你是专业翻译引擎。请将以下文本翻译成${targetLang}，只输出译文，不要添加解释、标题、引号、注释或任何额外内容：\n${text}',
   shortcut: 'Mod+T',
@@ -48,4 +48,23 @@ export function getAllSettings(): TranslateSettings {
     promptTemplate: getSetting('promptTemplate'),
     shortcut: getSetting('shortcut'),
   };
+}
+
+export function migrateLegacyDefaults(): void {
+  const legacyPrompt = '你是专业翻译引擎。请将以下文本翻译成${targetLang}，只输出译文，不要添加解释、标题、引号、注释或任何额外内容：\n${text}';
+  const isLegacyDefaultCombo =
+    getSetting('provider') === 'openai-compatible'
+    && getSetting('apiPreset') === 'ollama'
+    && getSetting('apiAddress') === 'http://localhost:11434/v1'
+    && getSetting('apiKey') === ''
+    && getSetting('modelName') === 'gpt-4'
+    && getSetting('targetLang') === '中文'
+    && getSetting('promptTemplate') === legacyPrompt
+    && getSetting('shortcut') === 'Mod+T';
+
+  if (!isLegacyDefaultCombo) {
+    return;
+  }
+
+  setSetting('modelName', DEFAULT_SETTINGS.modelName);
 }

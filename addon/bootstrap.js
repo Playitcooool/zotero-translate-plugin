@@ -1,4 +1,5 @@
 var chromeHandle;
+var windowObserver;
 
 function install(data, reason) {}
 
@@ -49,7 +50,7 @@ async function startup({ id, version, resourceURI, rootURI }, reason) {
   }
 
   // Listen for new windows using observer service
-  Services.obs.addObserver({
+  windowObserver = {
     observe: function(subject, topic, data) {
       if (topic === "domwindowopened") {
         const win = subject;
@@ -64,7 +65,8 @@ async function startup({ id, version, resourceURI, rootURI }, reason) {
         }, { once: true });
       }
     }
-  }, "domwindowopened", false);
+  };
+  Services.obs.addObserver(windowObserver, "domwindowopened", false);
 }
 
 async function onMainWindowLoad({ window }, reason) {
@@ -82,6 +84,11 @@ function shutdown({ id, version, resourceURI, rootURI }, reason) {
   }
 
   Zotero.ZoteroTranslate?.hooks?.onShutdown?.();
+
+  if (windowObserver) {
+    Services.obs.removeObserver(windowObserver, "domwindowopened");
+    windowObserver = null;
+  }
 
   Cc["@mozilla.org/intl/stringbundle;1"]
     .getService(Components.interfaces.nsIStringBundleService)
