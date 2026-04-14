@@ -1,8 +1,6 @@
 # Zotero Translate
 
-Zotero 7 PDF 划词翻译插件。
-
-选中文本后按快捷键即可翻译，支持 `OpenAI Compatible / LLM`、`DeepL`、`LibreTranslate`，并内置常用 API 预设。
+一款轻量的 Zotero 7 PDF 划词翻译插件，支持自定义快捷键，兼容本地 `Ollama` 模型以及 `OpenAI Compatible / LLM`、`DeepL`、`LibreTranslate` 等翻译服务。
 
 ![Zotero Translate Preview](./docs/images/preview.png)
 

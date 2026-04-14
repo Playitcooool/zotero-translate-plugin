@@ -1,7 +1,7 @@
 {
   "name": "zotero-translate-plugin",
   "version": "0.1.1",
-  "description": "Zotero 划词翻译插件，调用本地 LLM API",
+  "description": "一款轻量的 Zotero 7 PDF 划词翻译插件，支持自定义快捷键，兼容本地 Ollama 模型以及 OpenAI Compatible / LLM、DeepL、LibreTranslate 等翻译服务。",
   "author": "Playitcooool",
   "homepage": "https://github.com/Playitcooool/zotero-translate-plugin",
   "repository": {
