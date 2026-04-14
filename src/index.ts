@@ -22,6 +22,7 @@ let lastNonEmptySelectionText = '';
 let activeMainWindow: Window | null = null;
 let translationPopupPosition: { right: number; bottom: number } | null = null;
 let latestTranslationRequestId = 0;
+const initializedPrefsDocs = new WeakSet<Document>();
 
 const API_PRESETS: Record<string, { provider: string; apiAddress: string; apiKeyPlaceholder?: string; modelPlaceholder?: string }> = {
   ollama: {
@@ -134,14 +135,13 @@ const hooks = {
       return;
     }
 
-    const trackedDoc = doc as Document & { __zoteroTranslatePrefsBound?: boolean };
-    if (trackedDoc.__zoteroTranslatePrefsBound) {
+    if (initializedPrefsDocs.has(doc)) {
       applySettingsToForm(doc, getAllFormSettings());
       applyApiPreset(doc, (doc.getElementById('apiPreset') as HTMLSelectElement | null)?.value || DEFAULT_SETTINGS.apiPreset, false);
       updateSettingsFormVisibility(doc);
       return;
     }
-    trackedDoc.__zoteroTranslatePrefsBound = true;
+    initializedPrefsDocs.add(doc);
 
     const fields = ['provider', 'apiPreset', 'apiAddress', 'apiKey', 'modelName', 'targetLang', 'promptTemplate', 'shortcut'];
     fields.forEach(field => {
