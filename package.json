@@ -1,6 +1,6 @@
 {
   "name": "zotero-translate-plugin",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Zotero 划词翻译插件，调用本地 LLM API",
   "author": "Playitcooool",
   "homepage": "https://github.com/Playitcooool/zotero-translate-plugin",
