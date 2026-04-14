@@ -46,11 +46,16 @@
 
 当前版本 `.xpi` 可直接下载：
 
-- `https://github.com/Playitcooool/zotero-translate-plugin/releases/download/v0.1.0/zotero-translate-plugin-0.1.0.xpi`
+- `https://github.com/Playitcooool/zotero-translate-plugin/releases/latest/download/zotero-translate.xpi`
 
 发布页：
 
 - `https://github.com/Playitcooool/zotero-translate-plugin/releases`
+
+说明：
+
+- 直链使用 GitHub 常见的 `releases/latest/download/<asset>` 形式
+- 每次发布请上传同名资产 `zotero-translate.xpi`，这样 README 无需随版本改动
 
 ### From Source
 
