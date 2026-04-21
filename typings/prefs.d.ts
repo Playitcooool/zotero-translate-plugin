@@ -15,6 +15,8 @@ declare namespace _ZoteroTypes {
       "targetLang": string;
       "promptTemplate": string;
       "shortcut": string;
+      "shortcutHintDismissCount": number;
+      "closePopupAfterCopy": boolean;
     };
   }
 }

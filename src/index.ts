@@ -1,7 +1,23 @@
 // Zotero plugin bootstrap entry point
 
 import { translate } from './background/llm-client';
-import { DEFAULT_SETTINGS, getSetting, migrateLegacyDefaults, setSetting, type TranslateSettings } from './background/settings-manager';
+import {
+  DEFAULT_CLOSE_POPUP_AFTER_COPY,
+  DEFAULT_SETTINGS,
+  getSetting,
+  getUxSetting,
+  migrateLegacyDefaults,
+  setSetting,
+  setUxSetting,
+  type TranslateSettings,
+} from './background/settings-manager';
+import {
+  DEFAULT_SELECTION_REUSE_MS,
+  shouldReuseSelection,
+  shouldShowShortcutHint,
+  type SelectionSnapshot,
+  validateSettings,
+} from './background/ux-helpers';
 
 declare const Services: any;
 declare const Components: any;
@@ -17,11 +33,15 @@ const log = (msg: string) => {
 (globalThis as any).translate = translate;
 
 const READER_SELECTION_POPUP_LISTENER_ID = 'zotero-translate-selection-popup';
+const PREF_PANE_ID = 'zotero-translate-prefpane';
 let latestSelectionText = '';
-let lastNonEmptySelectionText = '';
+let latestSelectionExpiresAt = 0;
+let lastSelectionSnapshot: SelectionSnapshot | null = null;
+let activeReaderContext = 'reader:unknown';
 let activeMainWindow: Window | null = null;
 let translationPopupPosition: { right: number; bottom: number } | null = null;
 let latestTranslationRequestId = 0;
+let pendingPrefsFocusField: keyof TranslateSettings | null = null;
 const initializedPrefsDocs = new WeakSet<Document>();
 
 const API_PRESETS: Record<string, { provider: string; apiAddress: string; apiKeyPlaceholder?: string; modelPlaceholder?: string }> = {
@@ -89,6 +109,7 @@ const hooks = {
       if (rootURI) {
         Zotero.PreferencePanes.register({
           pluginID: 'zoterotranslate@plugin.local',
+          id: PREF_PANE_ID,
           src: rootURI + 'chrome/content/preferences.xhtml',
           label: 'Zotero Translate',
         });
@@ -137,8 +158,10 @@ const hooks = {
 
     if (initializedPrefsDocs.has(doc)) {
       applySettingsToForm(doc, getAllFormSettings());
+      applyUxSettingsToForm(doc);
       applyApiPreset(doc, (doc.getElementById('apiPreset') as HTMLSelectElement | null)?.value || DEFAULT_SETTINGS.apiPreset, false);
       updateSettingsFormVisibility(doc);
+      focusPendingSettingsField(doc);
       return;
     }
     initializedPrefsDocs.add(doc);
@@ -150,6 +173,7 @@ const hooks = {
         el.value = getSetting(field as any) as string;
       }
     });
+    applyUxSettingsToForm(doc);
 
     const saveBtn = doc.getElementById('saveBtn');
     const resetBtn = doc.getElementById('resetBtn');
@@ -177,15 +201,34 @@ const hooks = {
         const targetLangEl = doc!.getElementById('targetLang') as HTMLInputElement | null;
         const promptTemplateEl = doc!.getElementById('promptTemplate') as HTMLTextAreaElement | null;
         const shortcutEl = doc!.getElementById('shortcut') as HTMLInputElement | null;
+        const closeAfterCopyEl = doc!.getElementById('closePopupAfterCopy') as HTMLInputElement | null;
 
-        setSetting('provider', providerInput?.value || DEFAULT_SETTINGS.provider);
-        setSetting('apiPreset', presetInput?.value || DEFAULT_SETTINGS.apiPreset);
-        setSetting('apiAddress', apiAddressEl?.value || '');
-        setSetting('apiKey', apiKeyEl?.value || '');
-        setSetting('modelName', modelNameEl?.value || '');
-        setSetting('targetLang', targetLangEl?.value || '');
-        setSetting('promptTemplate', promptTemplateEl?.value || '');
-        setSetting('shortcut', shortcutEl?.value || DEFAULT_SETTINGS.shortcut);
+        const nextSettings: TranslateSettings = {
+          provider: providerInput?.value || DEFAULT_SETTINGS.provider,
+          apiPreset: presetInput?.value || DEFAULT_SETTINGS.apiPreset,
+          apiAddress: apiAddressEl?.value || '',
+          apiKey: apiKeyEl?.value || '',
+          modelName: modelNameEl?.value || '',
+          targetLang: targetLangEl?.value || '',
+          promptTemplate: promptTemplateEl?.value || '',
+          shortcut: shortcutEl?.value || DEFAULT_SETTINGS.shortcut,
+        };
+        const validation = validateSettings(nextSettings);
+        if (!validation.ok) {
+          showSettingsStatus(statusEl, validation.message, true);
+          focusSettingsField(doc!, validation.focusField);
+          return;
+        }
+
+        setSetting('provider', nextSettings.provider);
+        setSetting('apiPreset', nextSettings.apiPreset);
+        setSetting('apiAddress', nextSettings.apiAddress);
+        setSetting('apiKey', nextSettings.apiKey);
+        setSetting('modelName', nextSettings.modelName);
+        setSetting('targetLang', nextSettings.targetLang);
+        setSetting('promptTemplate', nextSettings.promptTemplate);
+        setSetting('shortcut', nextSettings.shortcut);
+        setUxSetting('closePopupAfterCopy', closeAfterCopyEl?.checked || false);
 
         log('Settings saved');
         showSettingsStatus(statusEl, '已保存', false);
@@ -195,6 +238,7 @@ const hooks = {
     if (resetBtn) {
       resetBtn.addEventListener('click', () => {
         applySettingsToForm(doc!, DEFAULT_SETTINGS);
+        setCheckboxValue(doc!, 'closePopupAfterCopy', DEFAULT_CLOSE_POPUP_AFTER_COPY);
         applyApiPreset(doc!, DEFAULT_SETTINGS.apiPreset);
         updateSettingsFormVisibility(doc!);
         showSettingsStatus(statusEl, '已恢复默认值，点击保存后生效', false);
@@ -203,6 +247,7 @@ const hooks = {
 
     applyApiPreset(doc, (doc.getElementById('apiPreset') as HTMLSelectElement | null)?.value || DEFAULT_SETTINGS.apiPreset, false);
     updateSettingsFormVisibility(doc);
+    focusPendingSettingsField(doc);
   },
 
   onMainWindowUnload: async (window: Window) => {
@@ -251,6 +296,8 @@ function doTranslate(text: string): void {
         originalText: text,
         state: 'error',
         error: result.error || 'Unknown error',
+        focusField: result.focusField || null,
+        isSettingsError: result.isSettingsError || false,
       });
     }
   }).catch(err => {
@@ -262,6 +309,8 @@ function doTranslate(text: string): void {
       originalText: text,
       state: 'error',
       error: String(err),
+      focusField: null,
+      isSettingsError: false,
     });
   });
 }
@@ -316,16 +365,22 @@ function handleMainWindowKeydown(event: KeyboardEvent): void {
       return;
     }
 
-    const text = latestSelectionText.trim();
-    const fallbackText = lastNonEmptySelectionText.trim();
-    const textToTranslate = text || fallbackText;
+    const now = Date.now();
+    const text = now <= latestSelectionExpiresAt ? latestSelectionText.trim() : '';
+    const textToTranslate = shouldReuseSelection({
+      currentText: text,
+      lastSelection: lastSelectionSnapshot,
+      now,
+      maxAgeMs: DEFAULT_SELECTION_REUSE_MS,
+      readerContext: activeReaderContext,
+    });
     if (!textToTranslate) {
       log('Shortcut pressed without cached selection');
       showToast(activeMainWindow, '请先在 PDF 中选中文本');
       return;
     }
-    if (!text && fallbackText) {
-      log(`Using last non-empty selection fallback: ${fallbackText.substring(0, 30)}...`);
+    if (!text && lastSelectionSnapshot?.text) {
+      log(`Using constrained selection fallback: ${lastSelectionSnapshot.text.substring(0, 30)}...`);
     }
 
     event.preventDefault();
@@ -398,9 +453,16 @@ function handleReaderSelectionPopup(event: {
       return;
     }
 
+    activeReaderContext = getReaderContext(event);
     latestSelectionText = selectedText;
-    lastNonEmptySelectionText = selectedText;
+    latestSelectionExpiresAt = Date.now() + DEFAULT_SELECTION_REUSE_MS;
+    lastSelectionSnapshot = {
+      text: selectedText,
+      capturedAt: Date.now(),
+      readerContext: activeReaderContext,
+    };
     log(`Cached reader selection: ${selectedText.substring(0, 30)}...`);
+    maybeShowShortcutHint();
   } catch (e) {
     log(`Failed to cache reader selection: ${e}`);
   }
@@ -490,6 +552,10 @@ function applySettingsToForm(doc: Document, values: TranslateSettings): void {
   }
 }
 
+function applyUxSettingsToForm(doc: Document): void {
+  setCheckboxValue(doc, 'closePopupAfterCopy', getUxSetting('closePopupAfterCopy'));
+}
+
 function getAllFormSettings(): TranslateSettings {
   return {
     provider: getSetting('provider'),
@@ -566,6 +632,39 @@ function updateSettingsFormVisibility(doc: Document): void {
   }
 }
 
+function focusPendingSettingsField(doc: Document): void {
+  if (!pendingPrefsFocusField) {
+    return;
+  }
+  focusSettingsField(doc, pendingPrefsFocusField);
+  pendingPrefsFocusField = null;
+}
+
+function focusSettingsField(doc: Document, field: keyof TranslateSettings | null): void {
+  if (!field) {
+    return;
+  }
+
+  if (field === 'promptTemplate') {
+    (doc.getElementById('advancedOptions') as HTMLDetailsElement | null)?.setAttribute('open', 'true');
+  }
+
+  const el = doc.getElementById(field) as HTMLElement | null;
+  if (!el) {
+    return;
+  }
+
+  el.scrollIntoView?.({ block: 'center' });
+  (el as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).focus?.();
+}
+
+function setCheckboxValue(doc: Document, id: string, value: boolean): void {
+  const el = doc.getElementById(id) as HTMLInputElement | null;
+  if (el) {
+    el.checked = value;
+  }
+}
+
 function showSettingsStatus(statusEl: HTMLElement | null, message: string, isError: boolean): void {
   if (!statusEl) {
     return;
@@ -586,6 +685,8 @@ function showTranslationPopup(payload: {
   state: PopupState;
   translation?: string;
   error?: string;
+  focusField?: keyof TranslateSettings | null;
+  isSettingsError?: boolean;
 }): void {
   const window = activeMainWindow;
   if (!window) {
@@ -618,10 +719,14 @@ function showTranslationPopup(payload: {
           <div>
             <div id="zotero-translate-popup-title" class="zt-popup-title">翻译结果</div>
             <div class="zt-popup-subtitle">快捷查看当前选中文本的译文</div>
+            <div class="zt-popup-meta"></div>
           </div>
         </div>
         <div class="zt-popup-section zt-popup-section-original">
-          <div class="zt-popup-label">原文</div>
+          <div class="zt-popup-section-header">
+            <div class="zt-popup-label">原文</div>
+            <button class="zt-popup-original-toggle" type="button" hidden>展开原文</button>
+          </div>
           <div class="zt-popup-original"></div>
         </div>
         <div class="zt-popup-section zt-popup-section-body">
@@ -631,6 +736,7 @@ function showTranslationPopup(payload: {
         <div class="zt-popup-actions">
           <button class="zt-popup-copy" type="button">复制译文</button>
           <button class="zt-popup-retry" type="button">重新翻译</button>
+          <button class="zt-popup-open-settings" type="button">打开设置</button>
           <button class="zt-popup-dismiss" type="button">关闭</button>
         </div>
       </div>
@@ -689,6 +795,9 @@ function showTranslationPopup(payload: {
           }
         }, 1200);
       }
+      if (getUxSetting('closePopupAfterCopy')) {
+        hideTranslationPopup(window);
+      }
     });
     overlay.querySelector('.zt-popup-retry')?.addEventListener('click', () => {
       const text = (overlay?.querySelector('.zt-popup-retry') as HTMLButtonElement | null)?.dataset.originalText || '';
@@ -696,16 +805,40 @@ function showTranslationPopup(payload: {
         doTranslate(text);
       }
     });
+    overlay.querySelector('.zt-popup-open-settings')?.addEventListener('click', () => {
+      const focusField = ((overlay?.querySelector('.zt-popup-open-settings') as HTMLButtonElement | null)?.dataset.focusField || '') as keyof TranslateSettings | '';
+      openPreferencesPane(focusField || null);
+    });
+    overlay.querySelector('.zt-popup-original-toggle')?.addEventListener('click', () => {
+      const originalEl = overlay?.querySelector('.zt-popup-original') as HTMLDivElement | null;
+      const toggleBtn = overlay?.querySelector('.zt-popup-original-toggle') as HTMLButtonElement | null;
+      if (!originalEl || !toggleBtn) {
+        return;
+      }
+      const expanded = originalEl.getAttribute('data-expanded') === 'true';
+      originalEl.setAttribute('data-expanded', expanded ? 'false' : 'true');
+      toggleBtn.textContent = expanded ? '展开原文' : '收起原文';
+    });
   }
 
   const originalEl = overlay.querySelector('.zt-popup-original');
   const bodyEl = overlay.querySelector('.zt-popup-body');
   const copyBtn = overlay.querySelector('.zt-popup-copy') as HTMLButtonElement | null;
   const retryBtn = overlay.querySelector('.zt-popup-retry') as HTMLButtonElement | null;
+  const openSettingsBtn = overlay.querySelector('.zt-popup-open-settings') as HTMLButtonElement | null;
+  const originalToggleBtn = overlay.querySelector('.zt-popup-original-toggle') as HTMLButtonElement | null;
+  const subtitleEl = overlay.querySelector('.zt-popup-subtitle') as HTMLDivElement | null;
+  const metaEl = overlay.querySelector('.zt-popup-meta') as HTMLDivElement | null;
   const card = overlay.querySelector('.zt-popup-card') as HTMLDivElement | null;
 
   if (originalEl) {
     originalEl.textContent = payload.originalText;
+    originalEl.setAttribute('data-expanded', 'false');
+  }
+
+  if (originalToggleBtn) {
+    originalToggleBtn.hidden = payload.originalText.trim().length <= 180;
+    originalToggleBtn.textContent = '展开原文';
   }
 
   if (bodyEl) {
@@ -726,6 +859,23 @@ function showTranslationPopup(payload: {
   if (retryBtn) {
     retryBtn.disabled = payload.state === 'loading';
     retryBtn.dataset.originalText = payload.originalText;
+  }
+
+  if (openSettingsBtn) {
+    openSettingsBtn.hidden = !payload.isSettingsError;
+    openSettingsBtn.dataset.focusField = payload.focusField || '';
+  }
+
+  if (subtitleEl) {
+    subtitleEl.textContent = payload.state === 'loading'
+      ? '正在请求翻译服务'
+      : payload.state === 'error'
+        ? payload.isSettingsError ? '当前配置不完整，需要先补全设置' : '翻译失败，可重试或检查服务状态'
+        : '已生成译文，可继续复制或重试';
+  }
+
+  if (metaEl) {
+    metaEl.textContent = `${getProviderLabel(getSetting('provider'))} · 目标语言：${getSetting('targetLang') || '未设置'}`;
   }
 
   if (card) {
@@ -767,6 +917,23 @@ function showToast(window: Window | null, message: string): void {
   trackedToast.__hideTimer = window.setTimeout(() => {
     toast?.setAttribute('data-visible', 'false');
   }, 1800);
+}
+
+function maybeShowShortcutHint(): void {
+  if (!activeMainWindow) {
+    return;
+  }
+
+  const dismissCount = getUxSetting('shortcutHintDismissCount');
+  if (!shouldShowShortcutHint({
+    selectionText: latestSelectionText,
+    dismissCount,
+  })) {
+    return;
+  }
+
+  showToast(activeMainWindow, `已选中文本，按 ${formatShortcutForDisplay(getSetting('shortcut'))} 翻译`);
+  setUxSetting('shortcutHintDismissCount', dismissCount + 1);
 }
 
 function initializeTranslationPopupDrag(window: Window, overlay: HTMLDivElement): void {
@@ -852,6 +1019,67 @@ function hideTranslationContextMenu(overlay: HTMLDivElement): void {
   if (menu) {
     menu.setAttribute('data-visible', 'false');
   }
+}
+
+function openPreferencesPane(focusField: keyof TranslateSettings | null): void {
+  pendingPrefsFocusField = focusField;
+  try {
+    Zotero.Utilities.Internal.openPreferences(PREF_PANE_ID);
+  } catch (e) {
+    log(`Failed to open preferences: ${e}`);
+    showToast(activeMainWindow, '无法自动打开设置，请从 Tools -> Plugins 进入');
+  }
+}
+
+function getReaderContext(event: {
+  reader?: { _iframeWindow?: Window } | unknown;
+  doc?: Document;
+}): string {
+  return event.doc?.location?.href
+    || (event.reader as { _iframeWindow?: Window } | undefined)?._iframeWindow?.location?.href
+    || 'reader:unknown';
+}
+
+function formatShortcutForDisplay(shortcut: string): string {
+  const normalized = normalizeShortcut(shortcut);
+  if (!normalized) {
+    return shortcut;
+  }
+
+  return normalized
+    .split('+')
+    .filter(Boolean)
+    .map((part) => {
+      if (part === 'mod') {
+        return isMacPlatform() ? 'Cmd' : 'Ctrl';
+      }
+      if (part === 'meta') {
+        return 'Cmd';
+      }
+      if (part === 'ctrl') {
+        return 'Ctrl';
+      }
+      if (part === 'alt') {
+        return isMacPlatform() ? 'Option' : 'Alt';
+      }
+      if (part === 'shift') {
+        return 'Shift';
+      }
+      return part.length === 1 ? part.toUpperCase() : part;
+    })
+    .join('+');
+}
+
+function getProviderLabel(provider: string): string {
+  if (provider === 'deepl') {
+    return 'DeepL';
+  }
+
+  if (provider === 'libretranslate') {
+    return 'LibreTranslate';
+  }
+
+  return 'OpenAI Compatible / LLM';
 }
 
 function ensureTranslationPopupStyles(doc: Document): void {
@@ -964,6 +1192,11 @@ function ensureTranslationPopupStyles(doc: Document): void {
       font-size: 12px;
       color: #5c6b83;
     }
+    .zt-popup-meta {
+      margin-top: 6px;
+      font-size: 11px;
+      color: #7b8798;
+    }
     .zt-popup-floating-close {
       position: fixed;
       width: 32px;
@@ -1004,13 +1237,19 @@ function ensureTranslationPopupStyles(doc: Document): void {
     .zt-popup-section {
       padding: 10px 14px 0;
     }
+    .zt-popup-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
     .zt-popup-label {
       font-size: 11px;
       font-weight: 700;
       letter-spacing: 0.06em;
       color: #5c6b83;
       text-transform: uppercase;
-      margin-bottom: 6px;
     }
     .zt-popup-original,
     .zt-popup-body {
@@ -1030,6 +1269,17 @@ function ensureTranslationPopupStyles(doc: Document): void {
       color: #475569;
       max-height: 74px;
       overflow: auto;
+    }
+    .zt-popup-original[data-expanded="true"] {
+      max-height: 220px;
+    }
+    .zt-popup-original-toggle {
+      border: none;
+      background: transparent;
+      color: #1f5eff;
+      font-size: 12px;
+      cursor: pointer;
+      padding: 0;
     }
     .zt-popup-body {
       color: #0f172a;
@@ -1061,6 +1311,11 @@ function ensureTranslationPopupStyles(doc: Document): void {
       background: #1f5eff;
       border-color: #1f5eff;
       color: #fff;
+    }
+    .zt-popup-open-settings {
+      background: #eef4ff;
+      border-color: rgba(97, 146, 255, 0.45);
+      color: #1849a9;
     }
     .zt-popup-copy:disabled {
       background: #d7e3ff;

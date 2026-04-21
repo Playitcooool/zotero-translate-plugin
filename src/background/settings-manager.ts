@@ -21,6 +21,18 @@ export const DEFAULT_SETTINGS: TranslateSettings = {
 };
 
 const PREF_PREFIX = 'extensions.zotero.zoterotranslate.';
+export const DEFAULT_SHORTCUT_HINT_DISMISS_COUNT = 0;
+export const DEFAULT_CLOSE_POPUP_AFTER_COPY = false;
+
+export interface UxSettings {
+  shortcutHintDismissCount: number;
+  closePopupAfterCopy: boolean;
+}
+
+const DEFAULT_UX_SETTINGS: UxSettings = {
+  shortcutHintDismissCount: DEFAULT_SHORTCUT_HINT_DISMISS_COUNT,
+  closePopupAfterCopy: DEFAULT_CLOSE_POPUP_AFTER_COPY,
+};
 
 export function getSetting<K extends keyof TranslateSettings>(
   key: K
@@ -67,4 +79,14 @@ export function migrateLegacyDefaults(): void {
   }
 
   setSetting('modelName', DEFAULT_SETTINGS.modelName);
+}
+
+export function getUxSetting<K extends keyof UxSettings>(key: K): UxSettings[K] {
+  const fullKey = PREF_PREFIX + key;
+  const value = Zotero.Prefs.get(fullKey);
+  return value !== undefined ? value as UxSettings[K] : DEFAULT_UX_SETTINGS[key];
+}
+
+export function setUxSetting<K extends keyof UxSettings>(key: K, value: UxSettings[K]): void {
+  Zotero.Prefs.set(PREF_PREFIX + key, value);
 }

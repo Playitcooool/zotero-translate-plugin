@@ -1,14 +1,27 @@
-import { getSetting } from './settings-manager';
+import { getAllSettings, getSetting, type TranslateSettings } from './settings-manager';
+import { validateSettings } from './ux-helpers';
 
 export interface TranslateResult {
   success: boolean;
   translation?: string;
   error?: string;
+  focusField?: keyof TranslateSettings | null;
+  isSettingsError?: boolean;
 }
 
 type Provider = 'openai-compatible' | 'deepl' | 'libretranslate';
 
 export async function translate(text: string, sourceLang: string = 'auto'): Promise<TranslateResult> {
+  const validation = validateSettings(getAllSettings());
+  if (!validation.ok) {
+    return {
+      success: false,
+      error: validation.message,
+      focusField: validation.focusField,
+      isSettingsError: true,
+    };
+  }
+
   const provider = getSetting('provider') as Provider;
 
   if (!text.trim()) {

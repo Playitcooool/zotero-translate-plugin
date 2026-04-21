@@ -16,7 +16,7 @@
     "addonInstance": "ZoteroTranslate"
   },
   "scripts": {
-    "test": "node tests/preferences-theme.test.mjs",
+    "test": "node --experimental-strip-types --test tests/ux-helpers.test.mjs tests/ux-source.test.mjs tests/preferences-theme.test.mjs",
     "build": "zotero-plugin build",
     "watch": "zotero-plugin serve",
     "start": "zotero-plugin serve"
