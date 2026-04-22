@@ -18,6 +18,7 @@ import {
   shouldShowShortcutHint,
   type SelectionSnapshot,
   validateSettings,
+  validateShortcut,
 } from './background/ux-helpers';
 
 declare const Services: any;
@@ -231,6 +232,15 @@ const hooks = {
           promptTemplate: promptTemplateEl?.value || '',
           shortcut: shortcutEl?.value || DEFAULT_SETTINGS.shortcut,
         };
+
+        // Validate shortcut format
+        const shortcutValidation = validateShortcut(nextSettings.shortcut);
+        if (!shortcutValidation.ok) {
+          showSettingsStatus(statusEl, shortcutValidation.message, true);
+          focusSettingsField(doc!, 'shortcut');
+          return;
+        }
+
         const validation = validateSettings(nextSettings);
         if (!validation.ok) {
           showSettingsStatus(statusEl, validation.message, true);
