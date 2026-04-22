@@ -46,6 +46,8 @@ let latestTranslationRequestId = 0;
 const pendingTranslationRequests = new Map<number, AbortController>();
 let pendingPrefsFocusField: keyof TranslateSettings | null = null;
 const initializedPrefsDocs = new WeakSet<Document>();
+let loadingStartTime: number | null = null;
+let loadingTimerInterval: number | null = null;
 
 interface PopupElements {
   originalEl: HTMLDivElement;
@@ -886,11 +888,34 @@ function showTranslationPopup(payload: {
   }
 
   if (bodyEl) {
+    // Clear any existing loading timer
+    if (loadingTimerInterval) {
+      window.clearInterval(loadingTimerInterval);
+      loadingTimerInterval = null;
+    }
+
     if (payload.state === 'loading') {
-      bodyEl.innerHTML = '<div class="zt-popup-loading"><span class="zt-popup-spinner"></span><span>翻译中...</span></div>';
+      loadingStartTime = Date.now();
+      bodyEl.innerHTML = '<div class="zt-popup-loading"><span class="zt-popup-spinner"></span><span class="zt-popup-loading-text">翻译中...</span></div>';
+      // Start timer to update elapsed time
+      const loadingTextEl = bodyEl.querySelector('.zt-popup-loading-text');
+      loadingTimerInterval = window.setInterval(() => {
+        if (loadingStartTime) {
+          const elapsed = Math.floor((Date.now() - loadingStartTime) / 1000);
+          if (loadingTextEl) {
+            if (elapsed >= 10) {
+              loadingTextEl.textContent = `仍在处理中... ${elapsed}秒`;
+            } else {
+              loadingTextEl.textContent = `翻译中... ${elapsed}秒`;
+            }
+          }
+        }
+      }, 1000);
     } else if (payload.state === 'success') {
+      loadingStartTime = null;
       bodyEl.textContent = payload.translation || '';
     } else {
+      loadingStartTime = null;
       bodyEl.innerHTML = `<div class="zt-popup-error">${escapeHtml(payload.error || '翻译失败')}</div>`;
     }
   }
@@ -936,6 +961,13 @@ function hideTranslationPopup(window: Window): void {
     abortController.abort();
   }
   pendingTranslationRequests.clear();
+
+  // Clear loading timer
+  if (loadingTimerInterval) {
+    window.clearInterval(loadingTimerInterval);
+    loadingTimerInterval = null;
+  }
+  loadingStartTime = null;
 
   const overlay = window.document.getElementById('zotero-translate-popup-overlay');
   if (overlay) {
