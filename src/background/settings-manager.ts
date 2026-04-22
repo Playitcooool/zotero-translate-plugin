@@ -35,11 +35,13 @@ export const DEFAULT_CLOSE_POPUP_AFTER_COPY = false;
 export interface UxSettings {
   shortcutHintDismissCount: number;
   closePopupAfterCopy: boolean;
+  showShortcutHint: boolean;
 }
 
 const DEFAULT_UX_SETTINGS: UxSettings = {
   shortcutHintDismissCount: DEFAULT_SHORTCUT_HINT_DISMISS_COUNT,
   closePopupAfterCopy: DEFAULT_CLOSE_POPUP_AFTER_COPY,
+  showShortcutHint: true,
 };
 
 export function getSetting<K extends keyof TranslateSettings>(

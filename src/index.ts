@@ -247,6 +247,8 @@ const hooks = {
         setSetting('promptTemplate', nextSettings.promptTemplate);
         setSetting('shortcut', nextSettings.shortcut);
         setUxSetting('closePopupAfterCopy', closeAfterCopyEl?.checked || false);
+        const showShortcutHintEl = doc!.getElementById('showShortcutHint') as HTMLInputElement | null;
+        setUxSetting('showShortcutHint', showShortcutHintEl?.checked || false);
 
         log('Settings saved');
         showSettingsStatus(statusEl, '已保存', false);
@@ -257,6 +259,7 @@ const hooks = {
       resetBtn.addEventListener('click', () => {
         applySettingsToForm(doc!, DEFAULT_SETTINGS);
         setCheckboxValue(doc!, 'closePopupAfterCopy', DEFAULT_CLOSE_POPUP_AFTER_COPY);
+        setCheckboxValue(doc!, 'showShortcutHint', true);
         applyApiPreset(doc!, DEFAULT_SETTINGS.apiPreset);
         updateSettingsFormVisibility(doc!);
         showSettingsStatus(statusEl, '已恢复默认值，点击保存后生效', false);
@@ -583,6 +586,7 @@ function applySettingsToForm(doc: Document, values: TranslateSettings): void {
 
 function applyUxSettingsToForm(doc: Document): void {
   setCheckboxValue(doc, 'closePopupAfterCopy', getUxSetting('closePopupAfterCopy'));
+  setCheckboxValue(doc, 'showShortcutHint', getUxSetting('showShortcutHint'));
 }
 
 function getAllFormSettings(): TranslateSettings {
@@ -1005,6 +1009,11 @@ function showToast(window: Window | null, message: string): void {
 
 function maybeShowShortcutHint(): void {
   if (!activeMainWindow) {
+    return;
+  }
+
+  // Check if shortcut hint is enabled in settings
+  if (!getUxSetting('showShortcutHint')) {
     return;
   }
 
