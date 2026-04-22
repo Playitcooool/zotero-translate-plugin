@@ -162,13 +162,13 @@ async function translateWithOpenAICompatible(text: string, sourceLang: string, s
       lastError = err instanceof Error ? err : new Error(String(err));
       // Don't retry on abort (timeout) errors
       if (err instanceof DOMException && err.name === 'AbortError') {
-        lastError = new Error('翻译超时，请重试');
+        lastError = new Error('翻译超时，请检查网络连接或API服务状态');
         break;
       }
     }
   }
 
-  return { success: false, error: lastError?.message || '网络请求失败' };
+  return { success: false, error: lastError?.message || '翻译失败，请重试或检查API配置' };
 }
 
 function sleep(ms: number): Promise<void> {
@@ -225,13 +225,13 @@ async function translateWithDeepL(text: string, sourceLang: string, settings: Tr
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       if (err instanceof DOMException && err.name === 'AbortError') {
-        lastError = new Error('翻译超时，请重试');
+        lastError = new Error('翻译超时，请检查网络连接或API服务状态');
         break;
       }
     }
   }
 
-  return { success: false, error: lastError?.message || '网络请求失败' };
+  return { success: false, error: lastError?.message || '翻译失败，请重试或检查API配置' };
 }
 
 async function translateWithLibreTranslate(text: string, sourceLang: string, settings: TranslateSettings, provider: Provider): Promise<TranslateResult> {
@@ -286,13 +286,13 @@ async function translateWithLibreTranslate(text: string, sourceLang: string, set
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       if (err instanceof DOMException && err.name === 'AbortError') {
-        lastError = new Error('翻译超时，请重试');
+        lastError = new Error('翻译超时，请检查网络连接或API服务状态');
         break;
       }
     }
   }
 
-  return { success: false, error: lastError?.message || '网络请求失败' };
+  return { success: false, error: lastError?.message || '翻译失败，请重试或检查API配置' };
 }
 
 function buildJsonHeaders(apiKey: string): Record<string, string> {
