@@ -47,19 +47,7 @@
 
 ## Providers
 
-### OpenAI Compatible / LLM
-
-- 本地 `Ollama`
-- `OpenAI`
-- `DeepSeek`
-- `OpenRouter`
-- `SiliconFlow`
-- `Groq`
-- 任意兼容 OpenAI Chat Completions 的接口
-
-### DeepL
-
-- 适合追求传统翻译质量和稳定性的用户
+### OpenAI Compatible / LLMw
 
 ### LibreTranslate
 

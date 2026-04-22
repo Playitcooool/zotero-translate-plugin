@@ -973,10 +973,20 @@ function hideTranslationPopup(window: Window): void {
   }
   loadingStartTime = null;
 
+  // Remove overlay from DOM
   const overlay = window.document.getElementById('zotero-translate-popup-overlay');
   if (overlay) {
-    overlay.setAttribute('data-visible', 'false');
     hideTranslationContextMenu(overlay as HTMLDivElement);
+    overlay.remove();
+  }
+
+  // Clear cached elements since DOM is removed
+  cachedPopupElements = null;
+
+  // Remove toast from DOM
+  const toast = window.document.getElementById('zotero-translate-toast');
+  if (toast) {
+    toast.remove();
   }
 }
 
