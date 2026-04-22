@@ -954,6 +954,8 @@ function showToast(window: Window | null, message: string): void {
   if (!toast) {
     toast = doc.createElement('div');
     toast.id = 'zotero-translate-toast';
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'polite');
     doc.documentElement.appendChild(toast);
   }
 
@@ -966,7 +968,7 @@ function showToast(window: Window | null, message: string): void {
   toast.setAttribute('data-visible', 'true');
   trackedToast.__hideTimer = window.setTimeout(() => {
     toast?.setAttribute('data-visible', 'false');
-  }, 1800);
+  }, 3000);
 }
 
 function maybeShowShortcutHint(): void {
