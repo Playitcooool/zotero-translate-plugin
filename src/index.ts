@@ -7,6 +7,7 @@ import {
   getSetting,
   getUxSetting,
   migrateLegacyDefaults,
+  PROVIDERS,
   setSetting,
   setUxSetting,
   type TranslateSettings,
@@ -30,73 +31,88 @@ const log = (msg: string) => {
 };
 
 // Make translate globally accessible for injected scripts
-(globalThis as any).translate = translate;
+(globalThis as unknown as { translate: typeof translate }).translate = translate;
 
 const READER_SELECTION_POPUP_LISTENER_ID = 'zotero-translate-selection-popup';
 const PREF_PANE_ID = 'zotero-translate-prefpane';
+const READER_CONTEXT_UNKNOWN = 'reader:unknown';
 let latestSelectionText = '';
 let latestSelectionExpiresAt = 0;
 let lastSelectionSnapshot: SelectionSnapshot | null = null;
-let activeReaderContext = 'reader:unknown';
+let activeReaderContext = READER_CONTEXT_UNKNOWN;
 let activeMainWindow: Window | null = null;
 let translationPopupPosition: { right: number; bottom: number } | null = null;
 let latestTranslationRequestId = 0;
+const pendingTranslationRequests = new Map<number, AbortController>();
 let pendingPrefsFocusField: keyof TranslateSettings | null = null;
 const initializedPrefsDocs = new WeakSet<Document>();
 
+interface PopupElements {
+  originalEl: HTMLDivElement;
+  bodyEl: HTMLDivElement;
+  copyBtn: HTMLButtonElement;
+  retryBtn: HTMLButtonElement;
+  openSettingsBtn: HTMLButtonElement;
+  originalToggleBtn: HTMLButtonElement;
+  subtitleEl: HTMLDivElement;
+  metaEl: HTMLDivElement;
+  card: HTMLDivElement;
+}
+let cachedPopupElements: PopupElements | null = null;
+
 const API_PRESETS: Record<string, { provider: string; apiAddress: string; apiKeyPlaceholder?: string; modelPlaceholder?: string }> = {
   ollama: {
-    provider: 'openai-compatible',
+    provider: PROVIDERS.OPENAI_COMPATIBLE,
     apiAddress: 'http://localhost:11434/v1',
     modelPlaceholder: 'qwen2.5:latest',
   },
   openai: {
-    provider: 'openai-compatible',
+    provider: PROVIDERS.OPENAI_COMPATIBLE,
     apiAddress: 'https://api.openai.com/v1',
     apiKeyPlaceholder: 'sk-...',
     modelPlaceholder: 'gpt-4.1-mini',
   },
   deepseek: {
-    provider: 'openai-compatible',
+    provider: PROVIDERS.OPENAI_COMPATIBLE,
     apiAddress: 'https://api.deepseek.com/v1',
     apiKeyPlaceholder: 'sk-...',
     modelPlaceholder: 'deepseek-chat',
   },
   openrouter: {
-    provider: 'openai-compatible',
+    provider: PROVIDERS.OPENAI_COMPATIBLE,
     apiAddress: 'https://openrouter.ai/api/v1',
     apiKeyPlaceholder: 'sk-or-...',
     modelPlaceholder: 'openai/gpt-4.1-mini',
   },
   siliconflow: {
-    provider: 'openai-compatible',
+    provider: PROVIDERS.OPENAI_COMPATIBLE,
     apiAddress: 'https://api.siliconflow.cn/v1',
     apiKeyPlaceholder: 'sk-...',
     modelPlaceholder: 'Qwen/Qwen2.5-7B-Instruct',
   },
   groq: {
-    provider: 'openai-compatible',
+    provider: PROVIDERS.OPENAI_COMPATIBLE,
     apiAddress: 'https://api.groq.com/openai/v1',
     apiKeyPlaceholder: 'gsk_...',
     modelPlaceholder: 'llama-3.3-70b-versatile',
   },
   'deepl-free': {
-    provider: 'deepl',
+    provider: PROVIDERS.DEEPL,
     apiAddress: 'https://api-free.deepl.com/v2',
     apiKeyPlaceholder: 'DeepL Auth Key',
   },
   'deepl-pro': {
-    provider: 'deepl',
+    provider: PROVIDERS.DEEPL,
     apiAddress: 'https://api.deepl.com/v2',
     apiKeyPlaceholder: 'DeepL Auth Key',
   },
   'libretranslate-default': {
-    provider: 'libretranslate',
+    provider: PROVIDERS.LIBRETRANSLATE,
     apiAddress: 'https://libretranslate.com',
     apiKeyPlaceholder: '可选',
   },
   custom: {
-    provider: 'openai-compatible',
+    provider: PROVIDERS.OPENAI_COMPATIBLE,
     apiAddress: '',
   },
 };
@@ -105,7 +121,7 @@ const hooks = {
     try {
       log('Plugin starting...');
       migrateLegacyDefaults();
-      const rootURI = (globalThis as any).rootURI;
+      const rootURI = (globalThis as unknown as { rootURI?: string }).rootURI;
       if (rootURI) {
         Zotero.PreferencePanes.register({
           pluginID: 'zoterotranslate@plugin.local',
@@ -143,7 +159,7 @@ const hooks = {
 
     if (!doc) {
       try {
-        doc = (globalThis as any).document;
+        doc = globalThis.document;
         log('Got doc from globalThis.document');
       } catch (e) {
         log(`Error: ${e}`);
@@ -170,7 +186,7 @@ const hooks = {
     fields.forEach(field => {
       const el = doc!.getElementById(field) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
       if (el && 'value' in el) {
-        el.value = getSetting(field as any) as string;
+      el.value = getSetting(field as keyof TranslateSettings) as string;
       }
     });
     applyUxSettingsToForm(doc);
@@ -275,16 +291,20 @@ function showAlert(title: string, message: string): void {
 
 function doTranslate(text: string): void {
   const requestId = ++latestTranslationRequestId;
+  const abortController = new AbortController();
+  pendingTranslationRequests.set(requestId, abortController);
+
   showTranslationPopup({
     originalText: text,
     state: 'loading',
   });
 
   translate(text).then(result => {
-    if (requestId !== latestTranslationRequestId) {
+    if (!pendingTranslationRequests.has(requestId)) {
       log(`Ignored stale translation result for request ${requestId}`);
       return;
     }
+    pendingTranslationRequests.delete(requestId);
     if (result.success && result.translation) {
       showTranslationPopup({
         originalText: text,
@@ -301,10 +321,11 @@ function doTranslate(text: string): void {
       });
     }
   }).catch(err => {
-    if (requestId !== latestTranslationRequestId) {
+    if (!pendingTranslationRequests.has(requestId)) {
       log(`Ignored stale translation error for request ${requestId}`);
       return;
     }
+    pendingTranslationRequests.delete(requestId);
     showTranslationPopup({
       originalText: text,
       state: 'error',
@@ -394,7 +415,7 @@ function handleMainWindowKeydown(event: KeyboardEvent): void {
 
 function registerReaderSelectionListener(): void {
   try {
-    const reader = (Zotero as any).Reader;
+    const reader = Zotero.Reader;
     if (!reader?.registerEventListener) {
       log('Zotero.Reader.registerEventListener is unavailable for selection listener');
       return;
@@ -414,7 +435,7 @@ function registerReaderSelectionListener(): void {
 
 function unregisterReaderSelectionListener(): void {
   try {
-    const reader = (Zotero as any).Reader;
+    const reader = Zotero.Reader;
     if (!reader?.unregisterEventListener) {
       return;
     }
@@ -616,7 +637,7 @@ function syncPresetWithProvider(doc: Document): void {
 
 function updateSettingsFormVisibility(doc: Document): void {
   const provider = (doc.getElementById('provider') as HTMLSelectElement | null)?.value || DEFAULT_SETTINGS.provider;
-  const isLlm = provider === 'openai-compatible';
+  const isLlm = provider === PROVIDERS.OPENAI_COMPATIBLE;
   const helpEl = doc.getElementById('apiAddressHelp') as HTMLElement | null;
 
   doc.querySelectorAll('.zt-llm-only').forEach((el) => {
@@ -626,7 +647,7 @@ function updateSettingsFormVisibility(doc: Document): void {
   if (helpEl) {
     helpEl.textContent = isLlm
       ? 'OpenAI Compatible 服务地址，例如 http://localhost:11434/v1。'
-      : provider === 'deepl'
+      : provider === PROVIDERS.DEEPL
         ? 'DeepL 请填写 v2 根地址，例如 https://api-free.deepl.com/v2。'
         : 'LibreTranslate 请填写服务根地址，例如 https://libretranslate.com。';
   }
@@ -819,17 +840,34 @@ function showTranslationPopup(payload: {
       originalEl.setAttribute('data-expanded', expanded ? 'false' : 'true');
       toggleBtn.textContent = expanded ? '展开原文' : '收起原文';
     });
+
+    // Cache popup elements after first creation
+    cachedPopupElements = {
+      originalEl: overlay.querySelector('.zt-popup-original') as HTMLDivElement,
+      bodyEl: overlay.querySelector('.zt-popup-body') as HTMLDivElement,
+      copyBtn: overlay.querySelector('.zt-popup-copy') as HTMLButtonElement,
+      retryBtn: overlay.querySelector('.zt-popup-retry') as HTMLButtonElement,
+      openSettingsBtn: overlay.querySelector('.zt-popup-open-settings') as HTMLButtonElement,
+      originalToggleBtn: overlay.querySelector('.zt-popup-original-toggle') as HTMLButtonElement,
+      subtitleEl: overlay.querySelector('.zt-popup-subtitle') as HTMLDivElement,
+      metaEl: overlay.querySelector('.zt-popup-meta') as HTMLDivElement,
+      card: overlay.querySelector('.zt-popup-card') as HTMLDivElement,
+    };
   }
 
-  const originalEl = overlay.querySelector('.zt-popup-original');
-  const bodyEl = overlay.querySelector('.zt-popup-body');
-  const copyBtn = overlay.querySelector('.zt-popup-copy') as HTMLButtonElement | null;
-  const retryBtn = overlay.querySelector('.zt-popup-retry') as HTMLButtonElement | null;
-  const openSettingsBtn = overlay.querySelector('.zt-popup-open-settings') as HTMLButtonElement | null;
-  const originalToggleBtn = overlay.querySelector('.zt-popup-original-toggle') as HTMLButtonElement | null;
-  const subtitleEl = overlay.querySelector('.zt-popup-subtitle') as HTMLDivElement | null;
-  const metaEl = overlay.querySelector('.zt-popup-meta') as HTMLDivElement | null;
-  const card = overlay.querySelector('.zt-popup-card') as HTMLDivElement | null;
+  // Use cached elements if available, otherwise query (fallback for first render)
+  const popup = cachedPopupElements || {
+    originalEl: overlay.querySelector('.zt-popup-original') as HTMLDivElement,
+    bodyEl: overlay.querySelector('.zt-popup-body') as HTMLDivElement,
+    copyBtn: overlay.querySelector('.zt-popup-copy') as HTMLButtonElement,
+    retryBtn: overlay.querySelector('.zt-popup-retry') as HTMLButtonElement,
+    openSettingsBtn: overlay.querySelector('.zt-popup-open-settings') as HTMLButtonElement,
+    originalToggleBtn: overlay.querySelector('.zt-popup-original-toggle') as HTMLButtonElement,
+    subtitleEl: overlay.querySelector('.zt-popup-subtitle') as HTMLDivElement,
+    metaEl: overlay.querySelector('.zt-popup-meta') as HTMLDivElement,
+    card: overlay.querySelector('.zt-popup-card') as HTMLDivElement,
+  };
+  const { originalEl, bodyEl, copyBtn, retryBtn, openSettingsBtn, originalToggleBtn, subtitleEl, metaEl, card } = popup;
 
   if (originalEl) {
     originalEl.textContent = payload.originalText;
@@ -1037,7 +1075,7 @@ function getReaderContext(event: {
 }): string {
   return event.doc?.location?.href
     || (event.reader as { _iframeWindow?: Window } | undefined)?._iframeWindow?.location?.href
-    || 'reader:unknown';
+    || READER_CONTEXT_UNKNOWN;
 }
 
 function formatShortcutForDisplay(shortcut: string): string {
@@ -1071,11 +1109,11 @@ function formatShortcutForDisplay(shortcut: string): string {
 }
 
 function getProviderLabel(provider: string): string {
-  if (provider === 'deepl') {
+  if (provider === PROVIDERS.DEEPL) {
     return 'DeepL';
   }
 
-  if (provider === 'libretranslate') {
+  if (provider === PROVIDERS.LIBRETRANSLATE) {
     return 'LibreTranslate';
   }
 
@@ -1359,11 +1397,9 @@ function ensureTranslationPopupStyles(doc: Document): void {
   doc.documentElement.appendChild(style);
 }
 
-function copyToClipboard(text: string): void {
+async function copyToClipboard(text: string): Promise<void> {
   try {
-    Components.classes['@mozilla.org/widget/clipboardhelper;1']
-      .getService(Components.interfaces.nsIClipboardHelper)
-      .copyString(text);
+    await navigator.clipboard.writeText(text);
   } catch (e) {
     log(`Failed to copy translation: ${e}`);
   }
@@ -1382,5 +1418,5 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-(Zotero as any).ZoteroTranslate = { hooks };
+(Zotero as unknown as { ZoteroTranslate?: { hooks: typeof hooks } }).ZoteroTranslate = { hooks };
 export { hooks };
