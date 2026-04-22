@@ -21,12 +21,15 @@ const translationCache = new Map<string, { result: string; timestamp: number }>(
 const MAX_CACHE_SIZE = 100;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
+// Cache key delimiter - null character won't appear in text
+const CACHE_KEY_DELIMITER = '\x00';
+
 // Retry configuration
 const MAX_RETRIES = 2;
 const RETRY_DELAYS = [1000, 2000]; // exponential backoff in ms
 
 function getCacheKey(text: string, sourceLang: string, targetLang: string, provider: Provider): string {
-  return `${provider}|${text}|${sourceLang}|${targetLang}`;
+  return `${provider}${CACHE_KEY_DELIMITER}${text}${CACHE_KEY_DELIMITER}${sourceLang}${CACHE_KEY_DELIMITER}${targetLang}`;
 }
 
 function setCacheEntry(key: string, result: string): void {
