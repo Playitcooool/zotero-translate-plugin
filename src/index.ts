@@ -290,6 +290,12 @@ function showAlert(title: string, message: string): void {
 }
 
 function doTranslate(text: string): void {
+  // Abort any existing in-flight request (debouncing)
+  for (const [, abortController] of pendingTranslationRequests) {
+    abortController.abort();
+  }
+  pendingTranslationRequests.clear();
+
   const requestId = ++latestTranslationRequestId;
   const abortController = new AbortController();
   pendingTranslationRequests.set(requestId, abortController);
@@ -925,6 +931,12 @@ function showTranslationPopup(payload: {
 }
 
 function hideTranslationPopup(window: Window): void {
+  // Abort any in-flight translation request
+  for (const [, abortController] of pendingTranslationRequests) {
+    abortController.abort();
+  }
+  pendingTranslationRequests.clear();
+
   const overlay = window.document.getElementById('zotero-translate-popup-overlay');
   if (overlay) {
     overlay.setAttribute('data-visible', 'false');

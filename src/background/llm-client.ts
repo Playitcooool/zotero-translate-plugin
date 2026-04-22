@@ -1,6 +1,14 @@
 import { getAllSettings, type TranslateSettings, PROVIDERS, type Provider } from './settings-manager';
 import { validateSettings } from './ux-helpers';
 
+export interface TranslateResult {
+  success: boolean;
+  translation?: string;
+  error?: string;
+  focusField?: keyof TranslateSettings | null;
+  isSettingsError?: boolean;
+}
+
 // Pre-compiled regex patterns for template replacement
 const TEMPLATE_PATTERNS = {
   text: /\${text}/g,
@@ -8,13 +16,44 @@ const TEMPLATE_PATTERNS = {
   sourceLang: /\${sourceLang}/g,
 } as const;
 
-// Translation cache: key = text|sourceLang|targetLang, value = { result, timestamp }
+// Bounded translation cache with LRU eviction
 const translationCache = new Map<string, { result: string; timestamp: number }>();
+const MAX_CACHE_SIZE = 100;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 // Retry configuration
 const MAX_RETRIES = 2;
 const RETRY_DELAYS = [1000, 2000]; // exponential backoff in ms
+
+function getCacheKey(text: string, sourceLang: string, targetLang: string, provider: Provider): string {
+  return `${provider}|${text}|${sourceLang}|${targetLang}`;
+}
+
+function setCacheEntry(key: string, result: string): void {
+  // Evict oldest entries if cache is full
+  if (translationCache.size >= MAX_CACHE_SIZE) {
+    let oldestKey: string | null = null;
+    let oldestTime = Infinity;
+    for (const [k, v] of translationCache) {
+      if (v.timestamp < oldestTime) {
+        oldestTime = v.timestamp;
+        oldestKey = k;
+      }
+    }
+    if (oldestKey) {
+      translationCache.delete(oldestKey);
+    }
+  }
+  translationCache.set(key, { result, timestamp: Date.now() });
+}
+
+function getCachedTranslation(key: string): string | null {
+  const cached = translationCache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    return cached.result;
+  }
+  return null;
+}
 
 export async function translate(text: string, sourceLang: string = 'auto'): Promise<TranslateResult> {
   const allSettings = getAllSettings();
@@ -37,23 +76,23 @@ export async function translate(text: string, sourceLang: string = 'auto'): Prom
     };
   }
 
-  // Check cache first
-  const cacheKey = `${text}|${sourceLang}|${allSettings.targetLang}`;
-  const cached = translationCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-    return { success: true, translation: cached.result };
+  // Check cache first (include provider in key)
+  const cacheKey = getCacheKey(text, sourceLang, allSettings.targetLang, provider);
+  const cachedResult = getCachedTranslation(cacheKey);
+  if (cachedResult) {
+    return { success: true, translation: cachedResult };
   }
 
   try {
     if (provider === PROVIDERS.DEEPL) {
-      return await translateWithDeepL(text, sourceLang, allSettings);
+      return await translateWithDeepL(text, sourceLang, allSettings, provider);
     }
 
     if (provider === PROVIDERS.LIBRETRANSLATE) {
-      return await translateWithLibreTranslate(text, sourceLang, allSettings);
+      return await translateWithLibreTranslate(text, sourceLang, allSettings, provider);
     }
 
-    return await translateWithOpenAICompatible(text, sourceLang, allSettings);
+    return await translateWithOpenAICompatible(text, sourceLang, allSettings, provider);
   } catch (err) {
     return {
       success: false,
@@ -62,7 +101,7 @@ export async function translate(text: string, sourceLang: string = 'auto'): Prom
   }
 }
 
-async function translateWithOpenAICompatible(text: string, sourceLang: string, settings: TranslateSettings): Promise<TranslateResult> {
+async function translateWithOpenAICompatible(text: string, sourceLang: string, settings: TranslateSettings, provider: Provider): Promise<TranslateResult> {
   const { apiAddress, apiKey, modelName, targetLang, promptTemplate } = settings;
 
   if (!apiAddress || !modelName) {
@@ -113,7 +152,8 @@ async function translateWithOpenAICompatible(text: string, sourceLang: string, s
       const translation = data.choices?.[0]?.message?.content?.trim();
       if (translation) {
         // Cache successful translation
-        translationCache.set(`${text}|${sourceLang}|${targetLang}`, { result: translation, timestamp: Date.now() });
+        const cacheKey = getCacheKey(text, sourceLang, targetLang, provider);
+        setCacheEntry(cacheKey, translation);
         return { success: true, translation };
       }
 
@@ -122,6 +162,7 @@ async function translateWithOpenAICompatible(text: string, sourceLang: string, s
       lastError = err instanceof Error ? err : new Error(String(err));
       // Don't retry on abort (timeout) errors
       if (err instanceof DOMException && err.name === 'AbortError') {
+        lastError = new Error('翻译超时，请重试');
         break;
       }
     }
@@ -134,7 +175,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function translateWithDeepL(text: string, sourceLang: string, settings: TranslateSettings): Promise<TranslateResult> {
+async function translateWithDeepL(text: string, sourceLang: string, settings: TranslateSettings, provider: Provider): Promise<TranslateResult> {
   const { apiAddress, apiKey, targetLang } = settings;
 
   if (!apiAddress || !apiKey) {
@@ -176,7 +217,7 @@ async function translateWithDeepL(text: string, sourceLang: string, settings: Tr
 
       const translation = data.translations?.[0]?.text?.trim();
       if (translation) {
-        translationCache.set(`${text}|${sourceLang}|${targetLang}`, { result: translation, timestamp: Date.now() });
+        setCacheEntry(getCacheKey(text, sourceLang, targetLang, provider), translation);
         return { success: true, translation };
       }
 
@@ -184,6 +225,7 @@ async function translateWithDeepL(text: string, sourceLang: string, settings: Tr
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       if (err instanceof DOMException && err.name === 'AbortError') {
+        lastError = new Error('翻译超时，请重试');
         break;
       }
     }
@@ -192,7 +234,7 @@ async function translateWithDeepL(text: string, sourceLang: string, settings: Tr
   return { success: false, error: lastError?.message || '网络请求失败' };
 }
 
-async function translateWithLibreTranslate(text: string, sourceLang: string, settings: TranslateSettings): Promise<TranslateResult> {
+async function translateWithLibreTranslate(text: string, sourceLang: string, settings: TranslateSettings, provider: Provider): Promise<TranslateResult> {
   const { apiAddress, apiKey, targetLang } = settings;
 
   if (!apiAddress) {
@@ -236,7 +278,7 @@ async function translateWithLibreTranslate(text: string, sourceLang: string, set
 
       if (data.translatedText?.trim()) {
         const translation = data.translatedText.trim();
-        translationCache.set(`${text}|${sourceLang}|${targetLang}`, { result: translation, timestamp: Date.now() });
+        setCacheEntry(getCacheKey(text, sourceLang, targetLang, provider), translation);
         return { success: true, translation };
       }
 
@@ -244,6 +286,7 @@ async function translateWithLibreTranslate(text: string, sourceLang: string, set
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
       if (err instanceof DOMException && err.name === 'AbortError') {
+        lastError = new Error('翻译超时，请重试');
         break;
       }
     }
