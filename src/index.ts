@@ -1302,6 +1302,10 @@ function ensureTranslationPopupStyles(doc: Document): void {
       background: #eef4ff;
       border-color: rgba(97, 146, 255, 0.65);
     }
+    .zt-popup-floating-close:focus-visible {
+      outline: 2px solid #1f5eff;
+      outline-offset: 2px;
+    }
     .zt-popup-close-icon {
       display: block;
       width: 14px;
@@ -1365,6 +1369,10 @@ function ensureTranslationPopupStyles(doc: Document): void {
       cursor: pointer;
       padding: 0;
     }
+    .zt-popup-original-toggle:focus-visible {
+      outline: 2px solid #1f5eff;
+      outline-offset: 2px;
+    }
     .zt-popup-body {
       color: #0f172a;
       min-height: 84px;
@@ -1386,6 +1394,10 @@ function ensureTranslationPopupStyles(doc: Document): void {
       font-size: 12px;
       cursor: pointer;
       transition: background 120ms ease, border-color 120ms ease;
+    }
+    .zt-popup-actions button:focus-visible {
+      outline: 2px solid #1f5eff;
+      outline-offset: 2px;
     }
     .zt-popup-actions button:disabled {
       cursor: default;
