@@ -1,6 +1,6 @@
 import type { TranslateSettings } from './settings-manager';
 
-export const DEFAULT_SELECTION_REUSE_MS = 2_000;
+export const DEFAULT_SELECTION_REUSE_MS = 5_000;
 export const DEFAULT_HINT_DISMISS_COUNT = 3;
 
 export interface SelectionSnapshot {
